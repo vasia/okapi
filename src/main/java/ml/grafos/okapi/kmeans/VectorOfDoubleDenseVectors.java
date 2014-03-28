@@ -26,12 +26,38 @@ public class VectorOfDoubleDenseVectors implements Writable {
 
 	public VectorOfDoubleDenseVectors() {}
 
+	/**
+	 * Creates a vector of vectors where only the vector at position is not null
+	 * and equal to value. Used for aggregation.
+	 * 
+	 * @param centerId
+	 * @param value
+	 */
+	public VectorOfDoubleDenseVectors(int size, int vectorDimensions, int centerId, DoubleDenseVector value) {
+		this.size = size;
+		this.dimensions = vectorDimensions;
+		vectors = new ArrayList<DoubleDenseVector>(size);
+		for (int i = 0; i < size; i++) {
+			if ( i == centerId) {
+				vectors.set(centerId, value);
+			}
+			else {
+				vectors.set(i, null);
+			}
+		}
+		
+	}
+
 	public ArrayList<DoubleDenseVector> getVectorList() {
 		return vectors;
 	}
 	
 	public int getSize() {
 		return size;
+	}
+	
+	public int getVectorDimensions() {
+		return dimensions;
 	}
 	
 	@Override
