@@ -2,9 +2,7 @@ package ml.grafos.okapi.kmeans;
 
 import java.io.IOException;
 
-import org.apache.giraph.aggregators.matrix.dense.DoubleDenseVector;
-import org.apache.giraph.aggregators.matrix.dense.LongDenseVector;
-import org.apache.giraph.aggregators.matrix.dense.LongDenseVectorSumAggregator;
+import ml.grafos.okapi.common.data.DoubleArrayListWritable;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.master.DefaultMasterCompute;
@@ -32,16 +30,17 @@ import org.python.modules.math;
 public class KMeansClustering {
 
   /**
-   * Used to store the cluster centers coordinates.
-   * It aggregates the vector coordinates of points assigned to cluster centers,
+   * The prefix for the cluster center aggregators, used to store the cluster centers coordinates.
+   * Each of them aggregates the vector coordinates of points assigned to the cluster center,
    * in order to compute the means as the coordinates of the new cluster centers.
    */
-  private static String CLUSTER_CENTERS_VECTORS = "cluster.centers.vectors";
+  private static String CENTER_AGGR_PREFIX = "center.aggr.prefix";
 
   /**
-   * Aggregator used to store the number of points assigned to each cluster center
+   * The prefix for the aggregators used to store the number of points 
+   * assigned to each cluster center
    */
-  private static String ASSIGNED_POINTS_COUNT = "assigned.points.count";
+  private static String ASSIGNED_POINTS_PREFIX = "assigned.points.prefix";
   
   /** Maximum number of iterations */
   public static final String MAX_ITERATIONS = "kmeans.iterations";
@@ -52,26 +51,32 @@ public class KMeansClustering {
   /** Default number of cluster centers */
   public static final int CLUSTER_CENTERS_COUNT_DEFAULT = 3;
   /** Dimensions of the input points*/
+  public static final String DIMENSIONS = "kmeans.points.dimensions";
+  /** Class for initialization of cluster centers*/
+  public static final String INIT_CLASS = "kmeans.initialization.class";
 
   public static class KMeansClusteringComputation extends BasicComputation<
-  LongWritable, DoubleDenseVector, NullWritable, NullWritable> {
-
+  LongWritable, DoubleArrayListWritable, NullWritable, NullWritable> {
+	  private int clustersClount; //TODO: read value from conf?
+	  
 	@Override
 	public void compute(
-			Vertex<LongWritable, DoubleDenseVector, NullWritable> vertex,
+			Vertex<LongWritable, DoubleArrayListWritable, NullWritable> vertex,
 			Iterable<NullWritable> messages) throws IOException {
 		// read the cluster centers coordinates
-		VectorOfDoubleDenseVectors clusterCenters = getAggregatedValue(CLUSTER_CENTERS_VECTORS);
+		DoubleArrayListWritable[] clusterCenters = readClusterCenters(CENTER_AGGR_PREFIX);
 		// find the closest center
 		int centerId = findClosestCenter(clusterCenters, vertex.getValue());
 		// aggregate this point's coordinates to the cluster centers aggregator
-		aggregate(CLUSTER_CENTERS_VECTORS, new VectorOfDoubleDenseVectors(
-				clusterCenters.getSize(), clusterCenters.getVectorDimensions(),
-				centerId, vertex.getValue()));
+		//aggregate(CENTER_AGGR_PREFIX+ClusterID, ...);
+		
 		// increase the count of assigned points for this cluster center
-		LongDenseVector vectorToAdd = new LongDenseVector();
-		vectorToAdd.set(centerId, 1);
-		aggregate(ASSIGNED_POINTS_COUNT, vectorToAdd);
+		//aggregate(ASSIGNED_POINTS_PREFIX+ClusterId, ...);
+	}
+
+	private DoubleArrayListWritable[] readClusterCenters(String prefix) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	/**
@@ -82,14 +87,14 @@ public class KMeansClustering {
 	 * @param value
 	 * @return the index of the cluster center in the clusterCenters vector
 	 */
-	private int findClosestCenter(VectorOfDoubleDenseVectors clusterCenters,
-			DoubleDenseVector value) {
+	private int findClosestCenter(DoubleArrayListWritable[] clusterCenters,
+			DoubleArrayListWritable value) {
 		double minDistance = Double.MAX_VALUE;
 		double distanceFromI;
 		int clusterIndex = 0;
-		for ( int i = 0; i < clusterCenters.getSize(); i++ ) {
-			distanceFromI = euclideanDistance(clusterCenters.getVectorList().get(i), value, 
-					clusterCenters.getVectorDimensions()); 
+		for ( int i = 0; i < clusterCenters.length; i++ ) {
+			distanceFromI = euclideanDistance(clusterCenters[i], value, 
+					clusterCenters[i].size()); 
 			if ( distanceFromI > minDistance ) {
 				minDistance = distanceFromI;
 				clusterIndex = i;
@@ -106,10 +111,10 @@ public class KMeansClustering {
 	 * @param dim 
 	 * @return
 	 */
-	private double euclideanDistance(DoubleDenseVector v1, DoubleDenseVector v2, int dim) {
+	private double euclideanDistance(DoubleArrayListWritable v1, DoubleArrayListWritable v2, int dim) {
 		double distance = 0;		
 		for ( int i = 0; i < dim; i++ ) {
-			distance += math.sqrt(math.pow(v1.get(i) - v2.get(i), 2));
+			distance += math.sqrt(math.pow(v1.get(i).get() - v2.get(i).get(), 2));
 		}
 		return distance;
 	}
@@ -121,8 +126,10 @@ public class KMeansClustering {
    */
   public static class MasterCompute extends DefaultMasterCompute {
 	  private int maxIterations;
-	  private VectorOfDoubleDenseVectors currentClusterCenters;
+	  private DoubleArrayListWritable[] currentClusterCenters;
 	  private int clustersCount;
+	  private Class initializationClass;
+	  
 	    
     @Override
     public final void initialize() throws InstantiationException,
@@ -131,8 +138,8 @@ public class KMeansClustering {
     			ITERATIONS_DEFAULT);
     	clustersCount = getContext().getConfiguration().getInt(CLUSTER_CENTERS_COUNT, 
     			CLUSTER_CENTERS_COUNT_DEFAULT);
-      registerAggregator(CLUSTER_CENTERS_VECTORS, VectorOfDoubleDenseVectorsSumAggregator.class);
-      registerAggregator(ASSIGNED_POINTS_COUNT, LongDenseVectorSumAggregator.class); //TODO: extend and customize this aggregator class
+    	initializationClass = getContext().getConfiguration().getClass();
+    	//register aggregators
     }
 
     @Override
@@ -141,41 +148,28 @@ public class KMeansClustering {
       if (superstep == 0) {
     	  // initialize the cluster centers as random points from the input
     	  // and store the value for convergence comparison
-    	  currentClusterCenters = selectRandomCenters();
-    	  setAggregatedValue(CLUSTER_CENTERS_VECTORS, currentClusterCenters);
       }
       else {
-	      VectorOfDoubleDenseVectors clusterCentersSum = getAggregatedValue(CLUSTER_CENTERS_VECTORS);
-	      LongDenseVector pointsCounts = getAggregatedValue(ASSIGNED_POINTS_COUNT);
 	      // compute the new centers positions
-	      VectorOfDoubleDenseVectors newClusters = computeClusterCenters(clusterCentersSum, 
-	    		  pointsCounts);
+    	  DoubleArrayListWritable[] newClusters = null; //computeClusterCenters(...)
 	      // check for convergence
 	      if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
 	    	  haltComputation();
 	      }
 	      else {
 	    	  // update the aggregator with the new cluster centers
-	    	  setAggregatedValue(CLUSTER_CENTERS_VECTORS, newClusters);
+	    	  //setAggregatedValue(CLUSTER_CENTERS_VECTORS, newClusters);
 	    	  currentClusterCenters = newClusters;
 	      } 
       }
     }
 
 	private boolean clusterPositionsDiff(
-			VectorOfDoubleDenseVectors currentClusterCenters,
-			VectorOfDoubleDenseVectors newClusters) {
+			DoubleArrayListWritable[] currentClusterCenters,
+			DoubleArrayListWritable[] newClusters) {
 		final double E = 0.0001f;
 		return false;
 	}
 
-	private VectorOfDoubleDenseVectors selectRandomCenters() {
-		return null;
-	}
-
-	private VectorOfDoubleDenseVectors computeClusterCenters(
-			VectorOfDoubleDenseVectors clusterCentersSum, LongDenseVector pointsCounts) {
-		return null;
-	}
   }
 }
