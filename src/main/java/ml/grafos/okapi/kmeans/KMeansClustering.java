@@ -3,9 +3,13 @@ package ml.grafos.okapi.kmeans;
 import java.io.IOException;
 
 import ml.grafos.okapi.common.data.DoubleArrayListWritable;
+
+import org.apache.giraph.aggregators.IntSumAggregator;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.master.DefaultMasterCompute;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.python.modules.math;
@@ -57,7 +61,13 @@ public class KMeansClustering {
 
   public static class KMeansClusteringComputation extends BasicComputation<
   LongWritable, DoubleArrayListWritable, NullWritable, NullWritable> {
-	  private int clustersClount; //TODO: read value from conf?
+	  private int clustersCount;
+	  
+	@Override
+	public void preSuperstep() {
+		clustersCount = getContext().getConfiguration()
+				  .getInt(CLUSTER_CENTERS_COUNT, CLUSTER_CENTERS_COUNT_DEFAULT);
+	}
 	  
 	@Override
 	public void compute(
@@ -68,15 +78,17 @@ public class KMeansClustering {
 		// find the closest center
 		int centerId = findClosestCenter(clusterCenters, vertex.getValue());
 		// aggregate this point's coordinates to the cluster centers aggregator
-		//aggregate(CENTER_AGGR_PREFIX+ClusterID, ...);
-		
+		aggregate(CENTER_AGGR_PREFIX + "_C" + centerId, vertex.getValue());
 		// increase the count of assigned points for this cluster center
-		//aggregate(ASSIGNED_POINTS_PREFIX+ClusterId, ...);
+		aggregate(ASSIGNED_POINTS_PREFIX + "C_" + centerId, new IntWritable(1));
 	}
 
 	private DoubleArrayListWritable[] readClusterCenters(String prefix) {
-		// TODO Auto-generated method stub
-		return null;
+		DoubleArrayListWritable centers [] = new DoubleArrayListWritable[clustersCount];
+		for ( int i = 0; i < clustersCount; i++ ) {
+			centers[i] = getAggregatedValue(prefix + "_C" + i);
+		}
+		return centers;
 	}
 
 	/**
@@ -128,6 +140,7 @@ public class KMeansClustering {
 	  private int maxIterations;
 	  private DoubleArrayListWritable[] currentClusterCenters;
 	  private int clustersCount;
+	  private int dimensions;
 	  private Class initializationClass;
 	  
 	    
@@ -138,8 +151,15 @@ public class KMeansClustering {
     			ITERATIONS_DEFAULT);
     	clustersCount = getContext().getConfiguration().getInt(CLUSTER_CENTERS_COUNT, 
     			CLUSTER_CENTERS_COUNT_DEFAULT);
+    	dimensions = getContext().getConfiguration().getInt(DIMENSIONS, 0);
+    	currentClusterCenters = new DoubleArrayListWritable[clustersCount];
     	initializationClass = getContext().getConfiguration().getClass();
-    	//register aggregators
+    	// register aggregators, one per center for the coordinates and
+    	// one per center for counts of assigned elements
+    	for ( int i = 0; i < clustersCount; i++ ) {
+    		registerAggregator(CENTER_AGGR_PREFIX + "C_" + i, DoubleArrayListWritableAggregator.class);
+    		registerAggregator(ASSIGNED_POINTS_PREFIX + "C_" + i, IntSumAggregator.class);
+    	}
     }
 
     @Override
@@ -148,27 +168,58 @@ public class KMeansClustering {
       if (superstep == 0) {
     	  // initialize the cluster centers as random points from the input
     	  // and store the value for convergence comparison
+    	  setComputation(initializationClass);
+    	  for ( int i = 0; i < clustersCount; i++ ) {
+    		  currentClusterCenters[i] = getAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i);
+    	  }
       }
       else {
 	      // compute the new centers positions
-    	  DoubleArrayListWritable[] newClusters = null; //computeClusterCenters(...)
+    	  DoubleArrayListWritable[] newClusters = computeClusterCenters();
 	      // check for convergence
 	      if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
 	    	  haltComputation();
 	      }
 	      else {
-	    	  // update the aggregator with the new cluster centers
-	    	  //setAggregatedValue(CLUSTER_CENTERS_VECTORS, newClusters);
+	    	  // update the aggregators with the new cluster centers
+	    	  for ( int i = 0; i < clustersCount; i ++ ) {
+	    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C" + i, newClusters[i]);
+	    	  }
 	    	  currentClusterCenters = newClusters;
 	      } 
       }
     }
 
+	private DoubleArrayListWritable[] computeClusterCenters() {
+		DoubleArrayListWritable[] newClusterCenters = new DoubleArrayListWritable[clustersCount];
+		DoubleArrayListWritable clusterCoordinates;
+		IntWritable assignedPoints;
+		for ( int i = 0; i < clustersCount; i++ ) {
+			clusterCoordinates = getAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i);
+			assignedPoints = getAggregatedValue(ASSIGNED_POINTS_PREFIX + "C_" + i);
+			for ( int j = 0; j < clusterCoordinates.size(); j++ ) {
+				clusterCoordinates.set(j, new DoubleWritable(
+						clusterCoordinates.get(j).get() / assignedPoints.get()));
+			}
+			newClusterCenters[i] = clusterCoordinates;
+		}
+		return newClusterCenters;
+	}
+
 	private boolean clusterPositionsDiff(
 			DoubleArrayListWritable[] currentClusterCenters,
 			DoubleArrayListWritable[] newClusters) {
-		final double E = 0.0001f;
-		return false;
+		final double E = 0.001f;
+		double diff = 0;
+		for ( int i = 0; i < clustersCount; i ++ ) {
+			for ( int j = 0; j < dimensions; j ++ ) {
+				diff += Math.abs(currentClusterCenters[i].get(j).get() - newClusters[i].get(j).get());
+			}
+		}
+		if ( diff > E )
+			return true;
+		else
+			return false;
 	}
 
   }
