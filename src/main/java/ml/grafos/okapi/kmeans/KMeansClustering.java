@@ -62,21 +62,21 @@ public class KMeansClustering {
   public static final String POINTS_COUNT = "kmeans.points.count"; 
 
   public static class RandomCentersInitialization extends BasicComputation<
-  LongWritable, DoubleArrayListWritable, NullWritable, NullWritable> {
+  LongWritable, KMeansVertexValue, NullWritable, NullWritable> {
 	
 	@Override
 	public void compute(
-			Vertex<LongWritable, DoubleArrayListWritable, NullWritable> vertex,
+			Vertex<LongWritable, KMeansVertexValue, NullWritable> vertex,
 			Iterable<NullWritable> messages) throws IOException {
 		ArrayListOfDoubleArrayListWritable value = new ArrayListOfDoubleArrayListWritable();
-		value.add(vertex.getValue());
+		value.add(vertex.getValue().getPointCoordinates());
 		aggregate(INITIAL_CENTERS, value);
 	}
 	  
   }
   
   public static class KMeansClusteringComputation extends BasicComputation<
-  LongWritable, DoubleArrayListWritable, NullWritable, NullWritable> {
+  LongWritable, KMeansVertexValue, NullWritable, NullWritable> {
 	  private int clustersCount;
 	  
 	@Override
@@ -87,12 +87,16 @@ public class KMeansClustering {
 	  
 	@Override
 	public void compute(
-			Vertex<LongWritable, DoubleArrayListWritable, NullWritable> vertex,
+			Vertex<LongWritable, KMeansVertexValue, NullWritable> vertex,
 			Iterable<NullWritable> messages) throws IOException {
 		// read the cluster centers coordinates
 		DoubleArrayListWritable[] clusterCenters = readClusterCenters(CENTER_AGGR_PREFIX);
 		// find the closest center
-		int centerId = findClosestCenter(clusterCenters, vertex.getValue());
+		int centerId = findClosestCenter(clusterCenters, vertex.getValue().getPointCoordinates());
+		// set the cluster id in the vertex value
+		KMeansVertexValue newValue = new KMeansVertexValue(vertex.getValue().getPointCoordinates(),
+				new IntWritable(centerId));
+		vertex.setValue(newValue);
 		// aggregate this point's coordinates to the cluster centers aggregator
 		aggregate(CENTER_AGGR_PREFIX + "_C" + centerId, vertex.getValue());
 		// increase the count of assigned points for this cluster center
