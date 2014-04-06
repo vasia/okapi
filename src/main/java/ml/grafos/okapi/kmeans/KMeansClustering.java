@@ -1,8 +1,6 @@
 package ml.grafos.okapi.kmeans;
 
 import java.io.IOException;
-import java.util.Random;
-
 import ml.grafos.okapi.common.data.DoubleArrayListWritable;
 
 import org.apache.giraph.aggregators.IntSumAggregator;
@@ -47,6 +45,9 @@ public class KMeansClustering {
    */
   private static String ASSIGNED_POINTS_PREFIX = "assigned.points.prefix";
   
+  /** The initial centers aggregator*/
+  private static String INITIAL_CENTERS = "kmeans.initial.centers";
+  
   /** Maximum number of iterations */
   public static final String MAX_ITERATIONS = "kmeans.iterations";
   /** Default value for iterations */
@@ -57,29 +58,19 @@ public class KMeansClustering {
   public static final int CLUSTER_CENTERS_COUNT_DEFAULT = 3;
   /** Dimensions of the input points*/
   public static final String DIMENSIONS = "kmeans.points.dimensions";
+  /** Total number of input points*/
+  public static final String POINTS_COUNT = "kmeans.points.count"; 
 
   public static class RandomCentersInitialization extends BasicComputation<
   LongWritable, DoubleArrayListWritable, NullWritable, NullWritable> {
-	  private int clustersCount;
-  
-	@Override
-	public void preSuperstep() {
-		clustersCount = getContext().getConfiguration()
-				  .getInt(CLUSTER_CENTERS_COUNT, CLUSTER_CENTERS_COUNT_DEFAULT);
-	}
 	
 	@Override
 	public void compute(
 			Vertex<LongWritable, DoubleArrayListWritable, NullWritable> vertex,
 			Iterable<NullWritable> messages) throws IOException {
-		// each point randomly selects one of the cluster centers aggregators
-		// and assigns itself to it
-		Random ran = new Random();
-		int centerId = ran.nextInt(clustersCount);
-		// aggregate this point's coordinates to the cluster centers aggregator
-		aggregate(CENTER_AGGR_PREFIX + "_C" + centerId, vertex.getValue());
-		// increase the count of assigned points for this cluster center
-		aggregate(ASSIGNED_POINTS_PREFIX + "C_" + centerId, new IntWritable(1));
+		ArrayListOfDoubleArrayListWritable value = new ArrayListOfDoubleArrayListWritable();
+		value.add(vertex.getValue());
+		aggregate(INITIAL_CENTERS, value);
 	}
 	  
   }
@@ -166,7 +157,6 @@ public class KMeansClustering {
 	  private DoubleArrayListWritable[] currentClusterCenters;
 	  private int clustersCount;
 	  private int dimensions;
-	  private boolean initialized = false;
 	    
     @Override
     public final void initialize() throws InstantiationException,
@@ -183,62 +173,43 @@ public class KMeansClustering {
     		registerAggregator(CENTER_AGGR_PREFIX + "C_" + i, DoubleArrayListWritableAggregator.class);
     		registerAggregator(ASSIGNED_POINTS_PREFIX + "C_" + i, IntSumAggregator.class);
     	}
+    	// register initial centers aggregator
+    	registerAggregator(INITIAL_CENTERS, ArrayListOfDoubleArrayListWritableAggregator.class);
     }
 
     @Override
     public final void compute() {
       long superstep = getSuperstep();
-      if ( !checkInitialization() ) {
-    	  // another superstep is needed to initialize the cluster centers
+      if ( superstep == 0 ) {
     	  setComputation(RandomCentersInitialization.class);
       }
       else {
     	  setComputation(KMeansClusteringComputation.class);
-    	  // check if currentClusterCenters has been initialized
-    	  if ( !initialized ) {
-        	  // store initial centers value for convergence check
-        	  // and set cluster centers aggregators values
-    		  DoubleArrayListWritable clusterCoordinates;
-			  IntWritable assignedPoints;
-			  for ( int i = 0; i < clustersCount; i++ ) {
-					clusterCoordinates = getAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i);
-					assignedPoints = getAggregatedValue(ASSIGNED_POINTS_PREFIX + "C_" + i);
-					for ( int j = 0; j < clusterCoordinates.size(); j++ ) {
-						clusterCoordinates.set(j, new DoubleWritable(
-								clusterCoordinates.get(j).get() / assignedPoints.get()));
-					}
-					currentClusterCenters[i] = clusterCoordinates;
-			}
-			  initialized = true;
-          }
-          else {
-    	      // compute the new centers positions
-        	  DoubleArrayListWritable[] newClusters = computeClusterCenters();
-    	      // check for convergence
-    	      if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
-    	    	  haltComputation();
-    	      }
-    	      else {
-    	    	  // update the aggregators with the new cluster centers
-    	    	  for ( int i = 0; i < clustersCount; i ++ ) {
-    	    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C" + i, newClusters[i]);
-    	    	  }
-    	    	  currentClusterCenters = newClusters;
-    	      } 
-          }
       }
-     
+      if ( superstep == 1 ) {
+    	  // initialize the centers aggregators
+    	  ArrayListOfDoubleArrayListWritable initialCenters = getAggregatedValue(INITIAL_CENTERS);
+    	  for ( int i = 0; i < clustersCount; i++ ) {
+    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, initialCenters.get(i));
+    		  currentClusterCenters[i] = initialCenters.get(i);
+    	  }
+      }
+      else {
+	      // compute the new centers positions
+    	  DoubleArrayListWritable[] newClusters = computeClusterCenters();
+	      // check for convergence
+	      if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
+	    	  haltComputation();
+	      }
+	      else {
+	    	  // update the aggregators with the new cluster centers
+	    	  for ( int i = 0; i < clustersCount; i ++ ) {
+	    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C" + i, newClusters[i]);
+	    	  }
+	    	  currentClusterCenters = newClusters;
+	      } 
+      }
     }
-
-    /**
-     *  
-     * @return true if all cluster centers have been initialized
-     * i.e. if all of the CENTER_AGGR_PREFIX_C+i aggregators have non-null values
-     */
-	private boolean checkInitialization() {
-		// TODO Auto-generated method stub
-		return false;
-	}
 
 	private DoubleArrayListWritable[] computeClusterCenters() {
 		DoubleArrayListWritable[] newClusterCenters = new DoubleArrayListWritable[clustersCount];
