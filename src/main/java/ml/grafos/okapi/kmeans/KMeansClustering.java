@@ -98,7 +98,7 @@ public class KMeansClustering {
 				new IntWritable(centerId));
 		vertex.setValue(newValue);
 		// aggregate this point's coordinates to the cluster centers aggregator
-		aggregate(CENTER_AGGR_PREFIX + "_C" + centerId, vertex.getValue());
+		aggregate(CENTER_AGGR_PREFIX + "C_" + centerId, vertex.getValue().getPointCoordinates());
 		// increase the count of assigned points for this cluster center
 		aggregate(ASSIGNED_POINTS_PREFIX + "C_" + centerId, new IntWritable(1));
 	}
@@ -106,7 +106,7 @@ public class KMeansClustering {
 	private DoubleArrayListWritable[] readClusterCenters(String prefix) {
 		DoubleArrayListWritable centers [] = new DoubleArrayListWritable[clustersCount];
 		for ( int i = 0; i < clustersCount; i++ ) {
-			centers[i] = getAggregatedValue(prefix + "_C" + i);
+			centers[i] = getAggregatedValue(prefix + "C_" + i);
 		}
 		return centers;
 	}
@@ -171,48 +171,48 @@ public class KMeansClustering {
     			CLUSTER_CENTERS_COUNT_DEFAULT);
     	dimensions = getContext().getConfiguration().getInt(DIMENSIONS, 0);
     	currentClusterCenters = new DoubleArrayListWritable[clustersCount];
+    	// register initial centers aggregator
+    	registerAggregator(INITIAL_CENTERS, ArrayListOfDoubleArrayListWritableAggregator.class);
     	// register aggregators, one per center for the coordinates and
     	// one per center for counts of assigned elements
     	for ( int i = 0; i < clustersCount; i++ ) {
     		registerAggregator(CENTER_AGGR_PREFIX + "C_" + i, DoubleArrayListWritableAggregator.class);
     		registerAggregator(ASSIGNED_POINTS_PREFIX + "C_" + i, IntSumAggregator.class);
     	}
-    	// register initial centers aggregator
-    	registerAggregator(INITIAL_CENTERS, ArrayListOfDoubleArrayListWritableAggregator.class);
     }
-
+    
     @Override
     public final void compute() {
-      long superstep = getSuperstep();
-      if ( superstep == 0 ) {
-    	  setComputation(RandomCentersInitialization.class);
-      }
-      else {
-    	  setComputation(KMeansClusteringComputation.class);
-      }
-      if ( superstep == 1 ) {
-    	  // initialize the centers aggregators
-    	  ArrayListOfDoubleArrayListWritable initialCenters = getAggregatedValue(INITIAL_CENTERS);
-    	  for ( int i = 0; i < clustersCount; i++ ) {
-    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, initialCenters.get(i));
-    		  currentClusterCenters[i] = initialCenters.get(i);
-    	  }
-      }
-      else {
-	      // compute the new centers positions
-    	  DoubleArrayListWritable[] newClusters = computeClusterCenters();
-	      // check for convergence
-	      if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
-	    	  haltComputation();
-	      }
-	      else {
-	    	  // update the aggregators with the new cluster centers
-	    	  for ( int i = 0; i < clustersCount; i ++ ) {
-	    		  setAggregatedValue(CENTER_AGGR_PREFIX + "C" + i, newClusters[i]);
-	    	  }
-	    	  currentClusterCenters = newClusters;
-	      } 
-      }
+	    long superstep = getSuperstep();
+	    if ( superstep == 0 ) {
+	    	setComputation(RandomCentersInitialization.class);
+	    }
+	    else {
+	    	setComputation(KMeansClusteringComputation.class);
+	    }
+	    if ( superstep == 1 ) {
+	    	// initialize the centers aggregators
+	    	ArrayListOfDoubleArrayListWritable initialCenters = getAggregatedValue(INITIAL_CENTERS);
+	    	for ( int i = 0; i < clustersCount; i++ ) {
+	    		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, initialCenters.get(i));
+	    		currentClusterCenters[i] = initialCenters.get(i);
+	    	}
+	    }
+	    else {
+		    // compute the new centers positions
+	    	DoubleArrayListWritable[] newClusters = computeClusterCenters();
+		    // check for convergence
+		    if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
+		  	  	haltComputation();
+		    }
+		    else {
+		  	  	// update the aggregators with the new cluster centers
+		  	  	for ( int i = 0; i < clustersCount; i ++ ) {
+		  	  		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, newClusters[i]);
+		  	  	}
+		  	  	currentClusterCenters = newClusters;
+		    } 
+	    }
     }
 
 	private DoubleArrayListWritable[] computeClusterCenters() {
