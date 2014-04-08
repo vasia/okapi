@@ -5,9 +5,13 @@ import java.util.Random;
 import org.apache.giraph.aggregators.Aggregator;
 import org.apache.giraph.conf.DefaultImmutableClassesGiraphConfigurable;
 
+@SuppressWarnings("rawtypes")
 public class ArrayListOfDoubleArrayListWritableAggregator extends 
 	DefaultImmutableClassesGiraphConfigurable 
 	implements Aggregator<ArrayListOfDoubleArrayListWritable> {
+	
+	public static final String CLUSTER_CENTERS_COUNT = "kmeans.cluster.centers.count";
+    public static final String POINTS_COUNT = "kmeans.points.count"; 
 
 	private int k; // the number of the cluster centers
 	private int pointsCount; // the number of input points
@@ -34,7 +38,7 @@ public class ArrayListOfDoubleArrayListWritableAggregator extends
 		}
 		else  {
 			Random ran = new Random();
-			int index = ran.nextInt(k-1);
+			int index = ran.nextInt(k);
 			if (Math.random() > ((double) k / (double) pointsCount) ) {
 				value.set(index, other.get(0));
 			}
@@ -44,10 +48,12 @@ public class ArrayListOfDoubleArrayListWritableAggregator extends
 
 	@Override
 	public ArrayListOfDoubleArrayListWritable createInitialValue() {
-		k = getConf().getInt("kmeans.cluster.centers.count", 0);
-		pointsCount = getConf().getInt("kmeans.points.count", 0);
+		
+		k = getConf().getInt(CLUSTER_CENTERS_COUNT, 0);
+		pointsCount = getConf().getInt(POINTS_COUNT, 0);
 		if ( (k > 0) && (pointsCount > 0) ) {
-			return new ArrayListOfDoubleArrayListWritable();
+			value =  new ArrayListOfDoubleArrayListWritable();
+			return value;
 		}
 		else {
 			throw new IllegalArgumentException
