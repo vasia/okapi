@@ -127,7 +127,7 @@ public class KMeansClustering {
 		for ( int i = 0; i < clusterCenters.length; i++ ) {
 			distanceFromI = euclideanDistance(clusterCenters[i], value, 
 					clusterCenters[i].size()); 
-			if ( distanceFromI > minDistance ) {
+			if ( distanceFromI < minDistance ) {
 				minDistance = distanceFromI;
 				clusterIndex = i;
 			}
@@ -189,29 +189,30 @@ public class KMeansClustering {
 	    }
 	    else {
 	    	setComputation(KMeansClusteringComputation.class);
-	    }
-	    if ( superstep == 1 ) {
-	    	// initialize the centers aggregators
-	    	ArrayListOfDoubleArrayListWritable initialCenters = getAggregatedValue(INITIAL_CENTERS);
-	    	for ( int i = 0; i < clustersCount; i++ ) {
-	    		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, initialCenters.get(i));
-	    		currentClusterCenters[i] = initialCenters.get(i);
-	    	}
-	    }
-	    else {
-		    // compute the new centers positions
-	    	DoubleArrayListWritable[] newClusters = computeClusterCenters();
-		    // check for convergence
-		    if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
-		  	  	haltComputation();
+	    
+		    if ( superstep == 1 ) {
+		    	// initialize the centers aggregators
+		    	ArrayListOfDoubleArrayListWritable initialCenters = getAggregatedValue(INITIAL_CENTERS);
+		    	for ( int i = 0; i < clustersCount; i++ ) {
+		    		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, initialCenters.get(i));
+		    		currentClusterCenters[i] = initialCenters.get(i);
+		    	}
 		    }
 		    else {
-		  	  	// update the aggregators with the new cluster centers
-		  	  	for ( int i = 0; i < clustersCount; i ++ ) {
-		  	  		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, newClusters[i]);
-		  	  	}
-		  	  	currentClusterCenters = newClusters;
-		    } 
+			    // compute the new centers positions
+		    	DoubleArrayListWritable[] newClusters = computeClusterCenters();		    	
+			    // check for convergence
+			    if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
+			  	  	haltComputation();
+			    }
+			    else {
+			  	  	// update the aggregators with the new cluster centers
+			  	  	for ( int i = 0; i < clustersCount; i ++ ) {
+			  	  		setAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i, newClusters[i]);
+			  	  	}
+			  	  	currentClusterCenters = newClusters;
+			    } 
+		    }
 	    }
     }
 
@@ -222,6 +223,8 @@ public class KMeansClustering {
 		for ( int i = 0; i < clustersCount; i++ ) {
 			clusterCoordinates = getAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i);
 			assignedPoints = getAggregatedValue(ASSIGNED_POINTS_PREFIX + "C_" + i);
+			//TODO: check if no element is assigned to a center? 
+			//Can this happen if we initialize with the points themselves?
 			for ( int j = 0; j < clusterCoordinates.size(); j++ ) {
 				clusterCoordinates.set(j, new DoubleWritable(
 						clusterCoordinates.get(j).get() / assignedPoints.get()));
