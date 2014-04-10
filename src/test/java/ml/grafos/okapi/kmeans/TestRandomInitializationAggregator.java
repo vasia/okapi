@@ -22,7 +22,6 @@ public class TestRandomInitializationAggregator {
 		
 		ArrayListOfDoubleArrayListWritableAggregator aggr = new ArrayListOfDoubleArrayListWritableAggregator();
 		aggr.setConf(immConf);
-		aggr.createInitialValue();
 		
 		ArrayListOfDoubleArrayListWritable other = new ArrayListOfDoubleArrayListWritable();
 		DoubleArrayListWritable value = new DoubleArrayListWritable();
@@ -60,6 +59,8 @@ public class TestRandomInitializationAggregator {
 		aggr.aggregate(other4);
 		
 		assertEquals(2, aggr.getAggregatedValue().size());
+		System.out.println(aggr.getAggregatedValue().get(0).get(0).get() + ", " +aggr.getAggregatedValue().get(0).get(1).get());
+		System.out.println(aggr.getAggregatedValue().get(1).get(0).get() + ", " +aggr.getAggregatedValue().get(1).get(1).get());
 	}
 
 }
