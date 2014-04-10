@@ -33,23 +33,14 @@ public class ArrayListOfDoubleArrayListWritableAggregator extends
 	public void aggregate(ArrayListOfDoubleArrayListWritable other) {
 		k = getConf().getInt(CLUSTER_CENTERS_COUNT, 0);
 		pointsCount = getConf().getInt(POINTS_COUNT, 0);
-		/*if ( other.size() != 1 ) {
-			throw new IllegalArgumentException
-			("The value to be aggregated should contain a single element!");
-		}*/
 		for ( int i = 0;  i < other.size(); i++ ) {
 			if ( getAggregatedValue().size() < k ) {
-		//		System.out.println("appending...");
-				// append in the current list
-				//value.add(other.get(0)); 
 				value.add(other.get(i)); 
-		//		System.out.println("***aggregated value size: " + value.size() );
 			}
 			else  {
 				Random ran = new Random();
 				int index = ran.nextInt(k);
 				if (Math.random() > ((double) k / (double) pointsCount) ) {
-					//value.set(index, other.get(0));
 					value.set(index, other.get(i));
 				}
 			}
