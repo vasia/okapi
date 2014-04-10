@@ -51,7 +51,7 @@ public class KMeansClustering {
   /** Maximum number of iterations */
   public static final String MAX_ITERATIONS = "kmeans.iterations";
   /** Default value for iterations */
-  public static final int ITERATIONS_DEFAULT = 10;
+  public static final int ITERATIONS_DEFAULT = 8;
   /** Number of cluster centers */
   public static final String CLUSTER_CENTERS_COUNT = "kmeans.cluster.centers.count";
   /** Default number of cluster centers */
@@ -71,8 +71,7 @@ public class KMeansClustering {
 		ArrayListOfDoubleArrayListWritable value = new ArrayListOfDoubleArrayListWritable();
 		value.add(vertex.getValue().getPointCoordinates());
 		aggregate(INITIAL_CENTERS, value);
-	}
-	  
+		}
   }
   
   public static class KMeansClusteringComputation extends BasicComputation<
@@ -89,18 +88,18 @@ public class KMeansClustering {
 	public void compute(
 			Vertex<LongWritable, KMeansVertexValue, NullWritable> vertex,
 			Iterable<NullWritable> messages) throws IOException {
+		KMeansVertexValue currentValue = vertex.getValue();
+		final DoubleArrayListWritable pointCoordinates = currentValue.getPointCoordinates();
 		// read the cluster centers coordinates
 		DoubleArrayListWritable[] clusterCenters = readClusterCenters(CENTER_AGGR_PREFIX);
 		// find the closest center
-		int centerId = findClosestCenter(clusterCenters, vertex.getValue().getPointCoordinates());
-		// set the cluster id in the vertex value
-		KMeansVertexValue newValue = new KMeansVertexValue(vertex.getValue().getPointCoordinates(),
-				new IntWritable(centerId));
-		vertex.setValue(newValue);
+		final int centerId = findClosestCenter(clusterCenters, currentValue.getPointCoordinates());
 		// aggregate this point's coordinates to the cluster centers aggregator
-		aggregate(CENTER_AGGR_PREFIX + "C_" + centerId, vertex.getValue().getPointCoordinates());
+		aggregate(CENTER_AGGR_PREFIX + "C_" + centerId, pointCoordinates);
 		// increase the count of assigned points for this cluster center
 		aggregate(ASSIGNED_POINTS_PREFIX + "C_" + centerId, new IntWritable(1));
+		// set the cluster id in the vertex value
+		vertex.getValue().setClusterId(new IntWritable(centerId));
 	}
 
 	private DoubleArrayListWritable[] readClusterCenters(String prefix) {
@@ -200,8 +199,8 @@ public class KMeansClustering {
 		    }
 		    else {
 			    // compute the new centers positions
-		    	DoubleArrayListWritable[] newClusters = computeClusterCenters();		    	
-			    // check for convergence
+		    	DoubleArrayListWritable[] newClusters = computeClusterCenters();		
+			     //check for convergence
 			    if ( (superstep > maxIterations) || (clusterPositionsDiff(currentClusterCenters, newClusters)) ) {
 			  	  	haltComputation();
 			    }
@@ -223,8 +222,6 @@ public class KMeansClustering {
 		for ( int i = 0; i < clustersCount; i++ ) {
 			clusterCoordinates = getAggregatedValue(CENTER_AGGR_PREFIX + "C_" + i);
 			assignedPoints = getAggregatedValue(ASSIGNED_POINTS_PREFIX + "C_" + i);
-			//TODO: check if no element is assigned to a center? 
-			//Can this happen if we initialize with the points themselves?
 			for ( int j = 0; j < clusterCoordinates.size(); j++ ) {
 				clusterCoordinates.set(j, new DoubleWritable(
 						clusterCoordinates.get(j).get() / assignedPoints.get()));
@@ -245,9 +242,9 @@ public class KMeansClustering {
 			}
 		}
 		if ( diff > E )
-			return true;
-		else
 			return false;
+		else
+			return true;
 	}
 
   }
