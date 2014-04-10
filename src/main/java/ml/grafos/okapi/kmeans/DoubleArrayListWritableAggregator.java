@@ -2,29 +2,31 @@ package ml.grafos.okapi.kmeans;
 
 import ml.grafos.okapi.common.data.DoubleArrayListWritable;
 import org.apache.giraph.aggregators.BasicAggregator;
+import org.apache.hadoop.io.DoubleWritable;
 
 public class DoubleArrayListWritableAggregator extends BasicAggregator<DoubleArrayListWritable> {
 
 	@Override
 	public void aggregate(DoubleArrayListWritable other) {
-		DoubleArrayListWritable value = getAggregatedValue();
-		if ( value.size() == 0 ) {
+		DoubleArrayListWritable aggrValue = getAggregatedValue();
+		if ( aggrValue.size() == 0 ) {
 			// first-time creation
 			for ( int i = 0; i < other.size(); i ++ ) {
-				value.add(other.get(i));
+				aggrValue.add(other.get(i));
 			}
-			setAggregatedValue(value);
+			setAggregatedValue(aggrValue);
 		}
-		else if ( getAggregatedValue().size() < other.size() ) {
+		else if ( aggrValue.size() < other.size() ) {
 			throw new IndexOutOfBoundsException("The value to be aggregated " +
 					"cannot have larger size than the aggregator value");
 		}
 		else {
 			for ( int i = 0; i < other.size(); i ++ ) {
-				value.get(i).set(value.get(i).get() + other.get(i).get());
+				DoubleWritable element = new DoubleWritable(aggrValue.get(i).get() + other.get(i).get());
+				aggrValue.set(i, element);
 			}
+			setAggregatedValue(aggrValue);
 		}
-		
 	}
 
 	@Override
