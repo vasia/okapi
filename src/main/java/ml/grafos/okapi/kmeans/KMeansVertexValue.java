@@ -15,7 +15,7 @@ import org.apache.hadoop.io.Writable;
  *
  */
 public class KMeansVertexValue implements Writable {
-	private DoubleArrayListWritable pointCoordinates;
+	private final DoubleArrayListWritable pointCoordinates;
 	private IntWritable clusterId;
 	
 	public KMeansVertexValue(DoubleArrayListWritable coordinates,
@@ -31,10 +31,6 @@ public class KMeansVertexValue implements Writable {
 
 	public DoubleArrayListWritable getPointCoordinates() {
 		return this.pointCoordinates;
-	}
-	
-	public void setPointCoordinates(DoubleArrayListWritable coordinates) {
-		this.pointCoordinates = coordinates;
 	}
 	
 	public IntWritable getClusterId() {
