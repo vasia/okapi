@@ -15,7 +15,7 @@ import com.google.common.collect.SetMultimap;
 public class TestKMeansClustering {
 
 	@Test
-	public void test() throws Exception {
+	public void test1() throws Exception {
         String[] graph = new String[] {
         		"1,1.0	1.0",
         		"2,1.5	2.0",
@@ -71,6 +71,62 @@ public class TestKMeansClustering {
         }
         else {
         	fail("Wrong cluster sizes");
+        }
+    }
+	
+	@Test
+	public void test2() throws Exception {
+        String[] graph = new String[] {
+        		"1,2.0	10.0",
+        		"2,2.0	5.0",
+        		"3,8.0	4.0",
+        		"4,5.0	8.0",
+        		"5,7.0	5.0",
+        		"6,6.0	4.0",
+        		"7,1.0	2.0",
+        		"8,4.0	9.0"
+                 };
+     
+        // run to check results correctness
+        GiraphConfiguration conf = new GiraphConfiguration();
+        conf.setInt(ArrayListOfDoubleArrayListWritableAggregator.CLUSTER_CENTERS_COUNT, 3);
+		conf.setInt(ArrayListOfDoubleArrayListWritableAggregator.POINTS_COUNT, 8);
+        conf.setMasterComputeClass(KMeansClustering.KMeansMasterCompute.class);
+        conf.setComputationClass(KMeansClustering.RandomCentersInitialization.class);
+        conf.setVertexInputFormatClass(KMeansTextInputFormat.class);
+        conf.setOutEdgesClass(NullOutEdges.class);
+        conf.setVertexOutputFormatClass(KMeansTextOutputFormat.class);
+        conf.setInt(KMeansClustering.CLUSTER_CENTERS_COUNT, 3);
+        conf.setInt(KMeansClustering.DIMENSIONS, 2);
+        conf.setInt(KMeansClustering.POINTS_COUNT, 8);
+
+
+        // run internally
+        Iterable<String> results = InternalVertexRunner.run(conf, graph);
+        SetMultimap<Integer,Integer> clusters = parseResults(results);
+
+        Set<Integer> clusterIDs = clusters.keySet();
+        assertEquals(3, clusterIDs.size());
+        
+        for ( int i = 0; i < clusterIDs.size(); i++ ) {
+        	Set<Integer> cluster = clusters.get(i);
+        	if ( cluster.contains(1)) {
+        		assertEquals(3, cluster.size());
+        		assertTrue(cluster.contains(4));
+        		assertTrue(cluster.contains(8));
+        	}
+        	else if ( cluster.contains(3) ) {
+        		assertEquals(3, cluster.size());
+        		assertTrue(cluster.contains(5));
+        		assertTrue(cluster.contains(6));
+        	}
+        	else if ( cluster.contains(2) ) {
+        		assertEquals(2, cluster.size());
+        		assertTrue(cluster.contains(7));
+        	}
+        	else {
+        		fail("Wrong clusters computed");
+        	}
         }
     }
 
