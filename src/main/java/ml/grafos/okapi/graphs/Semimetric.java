@@ -133,7 +133,6 @@ public class Semimetric  {
             throws IOException {
 
       for (SimpleEdge msg : messages) {
-        System.out.println("Vertex:"+vertex.getId()+" received:"+msg);
         // If this vertex has a neighbor with this ID, then this means it
         // participates in a triangle.
         
@@ -158,19 +157,16 @@ public class Semimetric  {
           double weight_bc = msg.getWeight(); 
           
           if (weight_ab+weight_ac < weight_bc) {
-            System.out.println("Semimetric edge 1: "+id2+"-"+id1);
             if (removeEdgesEnabled) {
               removeEdgesRequest(id1, id2);
               removeEdgesRequest(id2, id1);
             }
           } else if (weight_ab+weight_bc < weight_ac) {
-            System.out.println("Semimetric edge 2: "+vertex.getId()+"-"+id1);
             if (removeEdgesEnabled) {
               removeEdgesRequest(vertex.getId(), id1);
               removeEdgesRequest(id1, vertex.getId());
             }
           } else if (weight_bc+weight_ac < weight_ab) {
-            System.out.println("Semimetric edge 3: "+vertex.getId()+"-"+id2);
             if (removeEdgesEnabled) {
               removeEdgesRequest(vertex.getId(), id2);
               removeEdgesRequest(id2, vertex.getId());
