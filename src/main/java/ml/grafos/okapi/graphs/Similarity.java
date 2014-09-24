@@ -37,7 +37,8 @@ import org.apache.hadoop.util.hash.Hash;
 import com.google.common.primitives.Longs;
 
 /**
- * Used to compute different types of similarity.
+ * Used to compute different types of similarity. These implementations work
+ * for directed and undirected graphs.
  * 
  * To get the exact Jaccard similarity, run the command:
  * 
@@ -71,16 +72,22 @@ public class Similarity {
   /** Default value for approximate computation */
   public static final boolean JACCARD_APPROXIMATION_DEFAULT = false;
 
+  /** Size of bloom filter in bits */
   public static final String BLOOM_FILTER_BITS = "jaccard.bloom.filter.bits";
   
+  /** Default size of bloom filters */
   public static final int BLOOM_FILTER_BITS_DEFAULT = 16;
   
+  /** Number of functions to use in bloom filter */
   public static final String BLOOM_FILTER_FUNCTIONS = "jaccard.bloom.filter.functions";
   
+  /** Default number of functions to use in bloom filter */
   public static final int BLOOM_FILTER_FUNCTIONS_DEFAULT = 1;
   
+  /** Type of hash function to use in bloom filter */
   public static final String BLOOM_FILTER_HASH_TYPE = "jaccard.bloom.filter.has.type";
 
+  /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
 
   /**
@@ -148,6 +155,8 @@ public class Similarity {
           }
         }
         // The Jaccard similarity is commonFriends/totalFriends
+        // If the edge to the vertex with ID src does not exist, which is the
+        // case in a directed graph, this call has no effect. 
         vertex.setEdgeValue(src, new DoubleWritable(
             (double)commonFriends/(double)totalFriends));
       }
@@ -284,6 +293,8 @@ public class Similarity {
           }
         }
         // The Jaccard similarity is commonFriends/totalFriends
+        // If the edge to the vertex with ID src does not exist, which is the
+        // case in a directed graph, this call has no effect. 
         vertex.setEdgeValue(src, new DoubleWritable(
             (double)commonFriends/(double)totalFriends));
       }
