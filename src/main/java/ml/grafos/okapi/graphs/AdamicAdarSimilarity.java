@@ -94,16 +94,14 @@ public class AdamicAdarSimilarity {
    *
    */
   public static class ComputeLogOfInverseDegree extends BasicComputation<LongWritable, 
-  	DoubleWritable, DoubleWritable, LongIdDoubleValueFriendsList> {
+  	DoubleWritable, DoubleWritable, NullWritable> {
 
 	@Override
 	public void compute(
 			Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
-			Iterable<LongIdDoubleValueFriendsList> messages) throws IOException {
-		DoubleWritable vertexValue = new DoubleWritable(0.0);
-		if (vertex.getNumEdges() > 0) {
-			vertexValue.set(Math.log(1.0 / (double) vertex.getNumEdges()));
-		}
+			Iterable<NullWritable> messages) throws IOException {
+		DoubleWritable vertexValue = 
+				new DoubleWritable(Math.log(1.0 / (double) vertex.getNumEdges()));
 		vertex.setValue(vertexValue);
 	}
 	  
@@ -122,18 +120,17 @@ public class AdamicAdarSimilarity {
 			Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
 			Iterable<LongIdDoubleValueFriendsList> messages) throws IOException {
 		
-			LongArrayListWritable friends = new LongArrayListWritable();
+		final LongArrayListWritable friends = new LongArrayListWritable();
 		
-			for (Edge<LongWritable, DoubleWritable> edge : vertex.getEdges()) {
-			      friends.add(WritableUtils.clone(edge.getTargetVertexId(), getConf()));
-			}
-			
-			if (!(friends.isEmpty())) {
-				LongIdDoubleValueFriendsList msg = new LongIdDoubleValueFriendsList(vertex.getValue(), 
-						friends);
-			    sendMessageToAllEdges(vertex, msg);
-			}
+		for (Edge<LongWritable, DoubleWritable> edge : vertex.getEdges()) {
+		      friends.add(WritableUtils.clone(edge.getTargetVertexId(), getConf()));
 		}
+		
+		LongIdDoubleValueFriendsList msg = new LongIdDoubleValueFriendsList(vertex.getValue(), 
+				friends);
+		
+	    sendMessageToAllEdges(vertex, msg);
+	}
   }
 
   /**
@@ -148,11 +145,6 @@ public class AdamicAdarSimilarity {
 	  private DoubleWritable vertexValue;
 	  private LongArrayListWritable neighbors;
 	
-	  public LongIdDoubleValueFriendsList() {
-		  this.vertexValue = new DoubleWritable();
-		  this.neighbors = new LongArrayListWritable();
-	  }
-	  
 	  public LongIdDoubleValueFriendsList(DoubleWritable value, 
 			  LongArrayListWritable neighborList) {
 		this.vertexValue = value;
@@ -206,10 +198,10 @@ public class AdamicAdarSimilarity {
         DoubleWritable partialValue = msg.getVertexValue();
         for (LongWritable id : msg.getNeighborsList()) {
         	if (id != vertex.getId()) {
-        		if (vertex.getEdgeValue(id) != null) {
-        			DoubleWritable currentEdgeValue = vertex.getEdgeValue(id);
-        			// if the edge exists, add up the partial value to the current sum
-        			vertex.setEdgeValue(id, new DoubleWritable(currentEdgeValue.get() 
+        		DoubleWritable currentEdgeValue = vertex.getEdgeValue(id);
+        		// if the edge exists, add up the partial value to the current sum
+        		if (currentEdgeValue!= null) {
+        			vertex.setEdgeValue(id, new DoubleWritable (currentEdgeValue.get() 
         					+ partialValue.get()));
         		}
         	}	 
