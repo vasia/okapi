@@ -94,11 +94,11 @@ public class Similarity {
   /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
   
-  /** Enables the conversion to distance computation */
+  /** Enables the conversion to distance conversion */
   public static final String DISTANCE_CONVERSION = 
       "distance.conversion.enabled";
   
-  /** Default value for approximate computation */
+  /** Default value for distance conversion */
   public static final boolean DISTANCE_CONVERSION_DEFAULT = false;
 
   /**
@@ -183,6 +183,22 @@ public class Similarity {
       }
     }
   }
+  
+  public static class ScaleToDistance extends BasicComputation<LongWritable, 
+  	NullWritable, DoubleWritable, LongIdFriendsList> {
+
+	@Override
+	public void compute(
+			Vertex<LongWritable, NullWritable, DoubleWritable> vertex,
+			Iterable<LongIdFriendsList> messages) throws IOException {
+		
+		for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()) {
+			vertex.setEdgeValue(e.getTargetVertexId(), covertToDistance(e.getValue()));
+		}
+		vertex.voteToHalt();
+	}	  
+  }
+
 
 
   /**
@@ -330,27 +346,28 @@ public class Similarity {
     }
   }
   
-  public static class ScaleToDistance extends BasicComputation<LongWritable, 
-    NullWritable, DoubleWritable, LongIdFriendsList> {
+  public static class ScaleToDistanceBloom extends BasicComputation<LongWritable, 
+	NullWritable, DoubleWritable, LongIdBloomFilter> {
 
 	@Override
 	public void compute(
 			Vertex<LongWritable, NullWritable, DoubleWritable> vertex,
-			Iterable<LongIdFriendsList> messages) throws IOException {
+			Iterable<LongIdBloomFilter> messages) throws IOException {
 		
 		for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()) {
 			vertex.setEdgeValue(e.getTargetVertexId(), covertToDistance(e.getValue()));
 		}
 		vertex.voteToHalt();
-	}
-
-	/**
+	}	  
+}
+  
+  /**
 	 * 
 	 * Converts the [0,1] similarity value to a distance
 	 * which takes values in [0, INF].
 	 * 
 	 */
-	private DoubleWritable covertToDistance(DoubleWritable value) {
+	private static DoubleWritable covertToDistance(DoubleWritable value) {
 		if (Math.abs(value.get()) > 0) {
 			value.set((double)((1.0 / value.get()) - 1.0));
 		}
@@ -359,8 +376,6 @@ public class Similarity {
 		}
 		return value;
 	}
-	  
-  }
 
 
   /**
@@ -389,7 +404,7 @@ public class Similarity {
           setComputation(JaccardApproximation.class);
         } else {
         	if (conversionEnabled) {
-        		setComputation(ScaleToDistance.class);
+        		setComputation(ScaleToDistanceBloom.class);
         	}
         }
       } else {
