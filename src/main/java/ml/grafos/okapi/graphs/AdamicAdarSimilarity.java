@@ -27,7 +27,6 @@ import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.master.DefaultMasterCompute;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.bloom.BloomFilter;
 import org.apache.hadoop.util.bloom.Key;
@@ -54,6 +53,7 @@ import com.google.common.primitives.Longs;
  *   -ca giraph.oneToAllMsgSending=true \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
  *   -ca jaccard.approximation.enabled=false
+ *   -ca distance.conversion.enabled=true
  * </pre>
  * 
  * To get the approximate Adamic-Adar similarity 
@@ -86,6 +86,13 @@ public class AdamicAdarSimilarity {
 
   /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
+  
+  /** Enables the conversion to distance conversion */
+  public static final String DISTANCE_CONVERSION = 
+      "distance.conversion.enabled";
+  
+  /** Default value for distance conversion */
+  public static final boolean DISTANCE_CONVERSION_DEFAULT = true;
 
   /**
    * Implements the first step in the Adamic-Adar similarity computation.
@@ -197,6 +204,13 @@ public class AdamicAdarSimilarity {
   public static class AdamicAdar extends BasicComputation<LongWritable, 
     DoubleWritable, DoubleWritable, LongIdDoubleValueFriendsList> {
 
+	  boolean conversionEnabled;
+	  
+	  @Override
+	  public void preSuperstep() {
+		  conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
+	  }
+
     @Override
     public void compute(
         Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
@@ -215,11 +229,29 @@ public class AdamicAdarSimilarity {
         	}	 
         }
       }
-      vertex.voteToHalt();
+      if (!conversionEnabled) {
+    	  vertex.voteToHalt();
+      }
     }
   }
 
 
+  public static class ScaleToDistance extends BasicComputation<LongWritable, 
+  	DoubleWritable, DoubleWritable, LongIdDoubleValueFriendsList> {
+
+	@Override
+	public void compute(
+			Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
+			Iterable<LongIdDoubleValueFriendsList> messages) throws IOException {
+		
+		for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()) {
+			vertex.setEdgeValue(e.getTargetVertexId(), 
+					new DoubleWritable(e.getValue().get()*(-1.0)));
+		}
+		vertex.voteToHalt();
+	}
+  }
+  
   /**
    * This class implements the first computation step in the approximate
    * AdamicAdar similarity algorithm. 
@@ -311,11 +343,18 @@ public class AdamicAdarSimilarity {
    *
    */
   public static class AdamicAdarApproximation extends BasicComputation<LongWritable, 
-    NullWritable, DoubleWritable, LongIdAndValueBloomFilter> {
+  DoubleWritable, DoubleWritable, LongIdAndValueBloomFilter> {
+
+	  boolean conversionEnabled;
+	  
+	  @Override
+	  public void preSuperstep() {
+		  conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
+	  }
 
     @Override
     public void compute(
-        Vertex<LongWritable, NullWritable, DoubleWritable> vertex,
+        Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
         Iterable<LongIdAndValueBloomFilter> messages) throws IOException {
     	
     	for (LongIdAndValueBloomFilter msg : messages) {
@@ -331,8 +370,26 @@ public class AdamicAdarSimilarity {
             	}	 
             }
           }
-          vertex.voteToHalt();
-        }
+    	if (!conversionEnabled) {
+    		vertex.voteToHalt();
+    	}
+       }
+  }
+  
+  public static class ScaleToDistanceBloom extends BasicComputation<LongWritable, 
+  	DoubleWritable, DoubleWritable, LongIdAndValueBloomFilter> {
+
+	@Override
+	public void compute(
+			Vertex<LongWritable, DoubleWritable, DoubleWritable> vertex,
+			Iterable<LongIdAndValueBloomFilter> messages) throws IOException {
+		
+		for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()) {
+			vertex.setEdgeValue(e.getTargetVertexId(), 
+					new DoubleWritable(e.getValue().get()*(-1.0)));
+		}
+		vertex.voteToHalt();
+	}
   }
 
 
@@ -342,12 +399,14 @@ public class AdamicAdarSimilarity {
   public static class MasterCompute extends DefaultMasterCompute {
 
     boolean approximationEnabled;
+    boolean conversionEnabled;
 
     @Override
     public final void initialize() throws InstantiationException,
         IllegalAccessException {
       approximationEnabled = getConf().getBoolean(
           ADAMICADAR_APPROXIMATION, ADAMICADAR_APPROXIMATION_DEFAULT);
+      conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
     }
 
     @Override
@@ -360,14 +419,22 @@ public class AdamicAdarSimilarity {
 		      if (approximationEnabled) {
 		        if (superstep == 1) {
 		          setComputation(SendFriendsListAndValueBloomFilter.class);
-		        } else {
+		        } else if (superstep == 2) {
 		          setComputation(AdamicAdarApproximation.class);
-		        } 
+		        } else {
+		        	if (conversionEnabled) {
+		        		setComputation(ScaleToDistanceBloom.class);
+		        	}
+		        }
 		      } else {
 		        if (superstep == 1) {
 		          setComputation(SendFriendsListAndValue.class);
-		        } else {
+		        } else if (superstep == 2){
 		          setComputation(AdamicAdar.class);
+		        } else {
+		        	if (conversionEnabled) {
+		        		setComputation(ScaleToDistance.class);
+		        	}
 		        }
 		  }
       }
