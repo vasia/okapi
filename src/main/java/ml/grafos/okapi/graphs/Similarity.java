@@ -54,11 +54,15 @@ import com.google.common.primitives.Longs;
  *   -ca giraph.oneToAllMsgSending=true \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
  *   -ca jaccard.approximation.enabled=false
+ *   -ca distance.conversion.enabled=false
  * </pre>
  * 
  * To get the approximate Jaccard similarity, replace the SendFriendsList class
  * in the command with the SendFriendsBloomFilter class and set the 
- * jaccard.approximation.enabled parameter to false.
+ * jaccard.approximation.enabled parameter to true.
+ * 
+ * To enable conversion of the Jaccard similarity values to distances, 
+ * set the distance.scaling.enabled parameter to true. 
  * 
  * @author dl
  *
@@ -89,6 +93,13 @@ public class Similarity {
 
   /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
+  
+  /** Enables the conversion to distance computation */
+  public static final String DISTANCE_CONVERSION = 
+      "distance.conversion.enabled";
+  
+  /** Default value for approximate computation */
+  public static final boolean DISTANCE_CONVERSION_DEFAULT = false;
 
   /**
    * Implements the first step in the exact jaccard similirity algorithm. Each
@@ -135,6 +146,13 @@ public class Similarity {
    */
   public static class Jaccard extends BasicComputation<LongWritable, 
     NullWritable, DoubleWritable, LongIdFriendsList> {
+	  
+	  boolean conversionEnabled;
+	  
+	  @Override
+	  public void preSuperstep() {
+		  conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
+	  }
 
     @Override
     public void compute(
@@ -160,8 +178,9 @@ public class Similarity {
         vertex.setEdgeValue(src, new DoubleWritable(
             (double)commonFriends/(double)totalFriends));
       }
-
-      vertex.voteToHalt();
+      if (!conversionEnabled) {
+    	  vertex.voteToHalt();
+      }
     }
   }
 
@@ -272,6 +291,13 @@ public class Similarity {
   public static class JaccardApproximation extends BasicComputation<LongWritable, 
     NullWritable, DoubleWritable, LongIdBloomFilter> {
 
+	  boolean conversionEnabled;
+	  
+	  @Override
+	  public void preSuperstep() {
+		  conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
+	  }
+	  
     @Override
     public void compute(
         Vertex<LongWritable, NullWritable, DoubleWritable> vertex,
@@ -298,9 +324,42 @@ public class Similarity {
         vertex.setEdgeValue(src, new DoubleWritable(
             (double)commonFriends/(double)totalFriends));
       }
-
-      vertex.voteToHalt();
+      if (!conversionEnabled) {
+    	  vertex.voteToHalt();
+      }
     }
+  }
+  
+  public static class ScaleToDistance extends BasicComputation<LongWritable, 
+    NullWritable, DoubleWritable, LongIdFriendsList> {
+
+	@Override
+	public void compute(
+			Vertex<LongWritable, NullWritable, DoubleWritable> vertex,
+			Iterable<LongIdFriendsList> messages) throws IOException {
+		
+		for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()) {
+			vertex.setEdgeValue(e.getTargetVertexId(), covertToDistance(e.getValue()));
+		}
+		vertex.voteToHalt();
+	}
+
+	/**
+	 * 
+	 * Converts the [0,1] similarity value to a distance
+	 * which takes values in [0, INF].
+	 * 
+	 */
+	private DoubleWritable covertToDistance(DoubleWritable value) {
+		if (Math.abs(value.get()) > 0) {
+			value.set((double)((1.0 / value.get()) - 1.0));
+		}
+		else {
+			value.set(Double.MAX_VALUE);
+		}
+		return value;
+	}
+	  
   }
 
 
@@ -310,12 +369,14 @@ public class Similarity {
   public static class MasterCompute extends DefaultMasterCompute {
 
     boolean approximationEnabled;
+    boolean conversionEnabled;
 
     @Override
     public final void initialize() throws InstantiationException,
         IllegalAccessException {
       approximationEnabled = getConf().getBoolean(
           JACCARD_APPROXIMATION, JACCARD_APPROXIMATION_DEFAULT);
+      conversionEnabled = getConf().getBoolean(DISTANCE_CONVERSION, DISTANCE_CONVERSION_DEFAULT);
     }
 
     @Override
@@ -324,15 +385,24 @@ public class Similarity {
       if (approximationEnabled) {
         if (superstep == 0) {
           setComputation(SendFriendsBloomFilter.class);
-        } else {
+        } else if (superstep == 1) {
           setComputation(JaccardApproximation.class);
-        } 
+        } else {
+        	if (conversionEnabled) {
+        		setComputation(ScaleToDistance.class);
+        	}
+        }
       } else {
         if (superstep == 0) {
           setComputation(SendFriendsList.class);
-        } else {
+        } else if (superstep == 1) {
           setComputation(Jaccard.class);
-        }       
+        } else {
+        	if (conversionEnabled) {
+        		setComputation(ScaleToDistance.class);
+        	}
+        }
+        
       }
     }
   }
