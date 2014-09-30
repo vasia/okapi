@@ -57,6 +57,7 @@ public class AdamicAdarSimilarityTest {
     conf.setEdgeInputFormatClass(LongDoubleTextEdgeInputFormat.class);
     conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
     conf.setOutEdgesClass(HashMapEdges.class);
+   	conf.set("distance.conversion.enabled", "false");
     
     Iterable<String> results;
     try {
