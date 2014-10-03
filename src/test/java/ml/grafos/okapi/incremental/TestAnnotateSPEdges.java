@@ -53,15 +53,15 @@ public class TestAnnotateSPEdges {
         	System.out.println(s);
         }
         assertEquals(5, res.size());
-        for (String s: results) {
-        	String[] tokens = s.split("[\t ]");
-        	if ((tokens[0] == "5") && (tokens[2] == "2")) {
-        		tokens[5] = "SPEdge";
-        	}
-        	if ((tokens[0] == "1") && (tokens[2] == "5")) {
-        		tokens[5] = "SPEdge";
-        	}
-        }
+//        for (String s: results) {
+//        	String[] tokens = s.split("[\t ]");
+//        	if ((tokens[0] == "5") && (tokens[2] == "2")) {
+//        		tokens[5] = "SPEdge";
+//        	}
+//        	if ((tokens[0] == "1") && (tokens[2] == "5")) {
+//        		tokens[5] = "SPEdge";
+//        	}
+//        }
 	}
 
 }

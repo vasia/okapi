@@ -17,6 +17,7 @@ package ml.grafos.okapi.incremental;
 
 import java.io.IOException;
 
+import ml.grafos.okapi.incremental.util.DoubleLongPairWritable;
 import ml.grafos.okapi.incremental.util.FloatBooleanPairWritable;
 import ml.grafos.okapi.incremental.util.LongWithDoubleWritable;
 
@@ -35,11 +36,11 @@ import org.apache.hadoop.io.LongWritable;
 public class AnnotateShortestPathsEdges {
 	
 	public static class SendIdToNeighbors extends BasicComputation<LongWritable, 
-		DoubleWritable, FloatBooleanPairWritable, LongWritable> {
+		DoubleLongPairWritable, FloatBooleanPairWritable, LongWritable> {
 
 		@Override
 		public void compute(
-				Vertex<LongWritable, DoubleWritable, FloatBooleanPairWritable> vertex,
+				Vertex<LongWritable, DoubleLongPairWritable, FloatBooleanPairWritable> vertex,
 				Iterable<LongWritable> messages) throws IOException {
 			 	sendMessageToAllEdges(vertex,  vertex.getId());
 		}
@@ -53,24 +54,26 @@ public class AnnotateShortestPathsEdges {
 	 *
 	 */
 	public static class SendDistanceToInNeighbors extends AbstractComputation<LongWritable, 
-		DoubleWritable, FloatBooleanPairWritable, LongWritable, LongWithDoubleWritable> {
+		DoubleLongPairWritable, FloatBooleanPairWritable, LongWritable, LongWithDoubleWritable> {
 
 		@Override
 		public void compute(
-				Vertex<LongWritable, DoubleWritable, FloatBooleanPairWritable> vertex,
+				Vertex<LongWritable, DoubleLongPairWritable, FloatBooleanPairWritable> vertex,
 				Iterable<LongWritable> messages) throws IOException {
 			for (LongWritable inNeighborID: messages) {
-				sendMessage(inNeighborID, new LongWithDoubleWritable(vertex.getId(), vertex.getValue()));
+				sendMessage(inNeighborID, new LongWithDoubleWritable(vertex.getId(), 
+						new DoubleWritable(vertex.getValue().getDistance())));
 			}
 		}
 	}
 	
-	public static class AnnotateSPEdges extends BasicComputation<LongWritable, 
-		DoubleWritable, FloatBooleanPairWritable, LongWithDoubleWritable> {
+	public static class AnnotateSPEdges extends AbstractComputation<LongWritable, 
+		DoubleLongPairWritable, FloatBooleanPairWritable, LongWithDoubleWritable,
+		LongWritable> {
 
 		@Override
 		public void compute(
-				Vertex<LongWritable, DoubleWritable, FloatBooleanPairWritable> vertex,
+				Vertex<LongWritable, DoubleLongPairWritable, FloatBooleanPairWritable> vertex,
 				Iterable<LongWithDoubleWritable> messages) throws IOException {
 			for (LongWithDoubleWritable msg: messages) {
 				// check if the edge (vertexID -> msgSenderID) is an SP-G edge
@@ -78,12 +81,38 @@ public class AnnotateShortestPathsEdges {
 				LongWritable senderId = msg.getVertexId();
 				FloatBooleanPairWritable edgeValue = vertex.getEdgeValue(senderId); 
 				float edgeWeight = edgeValue.getWeight();
-				if (msg.getVertexValue().get() == (vertex.getValue().get() + edgeWeight)) {
-					vertex.setEdgeValue(senderId, edgeValue.setSPEdge(true));				
+				if (msg.getVertexValue().get() == (vertex.getValue().getDistance() + edgeWeight)) {
+					vertex.setEdgeValue(senderId, edgeValue.setSPEdge(true));
+					
+					// send a message to the sender to increase its in-SP-degree
+					sendMessage(senderId, new LongWritable(1));
 				}
 			}
-			vertex.voteToHalt();
 		}
+	}
+	
+	/**
+	 * 
+	 * In this last step, each vertex aggregates the received messages
+	 * and sets its in-SP-degree to the sum of them.
+	 *
+	 */
+	public static class ComputeInSPEdgeDegree extends BasicComputation<LongWritable, 
+	DoubleLongPairWritable, FloatBooleanPairWritable, LongWritable> {
+
+		@Override
+		public void compute(
+				Vertex<LongWritable, DoubleLongPairWritable, FloatBooleanPairWritable> vertex,
+				Iterable<LongWritable> messages) throws IOException {
+			long sum = 0;
+			for (LongWritable msg :  messages) {
+				sum += msg.get();
+			}
+			vertex.setValue(vertex.getValue().setInSPdegree(sum));
+			vertex.voteToHalt();
+			
+		}
+		
 	}
 	
 	  /**
@@ -96,13 +125,18 @@ public class AnnotateShortestPathsEdges {
 		      long superstep = getSuperstep();
 		      if (superstep == 0) {
 		        setComputation(SendIdToNeighbors.class);
-		      } else if (superstep == 1){
+		      } else if (superstep == 1) {
 		    	  setComputation(SendDistanceToInNeighbors.class);
 		    	  setIncomingMessage(LongWritable.class);
 		    	  setOutgoingMessage(LongWithDoubleWritable.class);
 		      }
-		      else {
+		      else if (superstep == 2) {
 		    	  setComputation(AnnotateSPEdges.class);
+		    	  setIncomingMessage(LongWithDoubleWritable.class);
+		    	  setOutgoingMessage(LongWritable.class);
+		      }
+		      else {
+		    	  setComputation(ComputeInSPEdgeDegree.class);
 		      }
 		  }
 	  }
