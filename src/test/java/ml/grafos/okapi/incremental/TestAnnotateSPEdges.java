@@ -6,7 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import ml.grafos.okapi.incremental.util.FloatBooleanPairEdgeInputFormat;
-import ml.grafos.okapi.incremental.util.LongDoubleVertexValueInputFormat;
+import ml.grafos.okapi.incremental.util.LongDoubleInitVertexValueInputFormat;
 
 import org.apache.giraph.io.formats.AdjacencyListTextVertexOutputFormat;
 import org.apache.giraph.conf.GiraphConfiguration;
@@ -42,7 +42,7 @@ public class TestAnnotateSPEdges {
         conf.setComputationClass(AnnotateShortestPathsEdges.SendIdToNeighbors.class);
         conf.setMasterComputeClass(AnnotateShortestPathsEdges.MasterCompute.class);
         conf.setEdgeInputFormatClass(FloatBooleanPairEdgeInputFormat.class);
-        conf.setVertexInputFormatClass(LongDoubleVertexValueInputFormat.class);
+        conf.setVertexInputFormatClass(LongDoubleInitVertexValueInputFormat.class);
         conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
         conf.setOutEdgesClass(HashMapEdges.class);
         Iterable<String> results = InternalVertexRunner.run(conf, vertices, edges);

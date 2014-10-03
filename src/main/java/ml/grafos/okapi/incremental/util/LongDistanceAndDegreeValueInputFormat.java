@@ -11,12 +11,11 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 /**
  * 
- * Vertex Input Format that reads pairs of vertex ids and their calculated distance
- * <vertexID> <distance_from_src> 
- * It also sets the in-SP-Edge degree of each vertex to 0
+ * Vertex Input Format that reads vertex ids, distance values and in-SP-degree
+ * <vertexID> <distance_from_src> <in-SP-degree>
  *
  */
-public class LongDoubleVertexValueInputFormat extends
+public class LongDistanceAndDegreeValueInputFormat extends
 	TextVertexValueInputFormat<LongWritable, DoubleLongPairWritable, FloatBooleanPairWritable> {
 
 	private static final Pattern SEPARATOR = Pattern.compile("[\t ]");
@@ -42,7 +41,8 @@ public class LongDoubleVertexValueInputFormat extends
 	
 		@Override
 		protected DoubleLongPairWritable getValue(String[] line) throws IOException {
-			return new DoubleLongPairWritable(Double.parseDouble(line[1]), 0L);
+			return new DoubleLongPairWritable(Double.parseDouble(line[1]), 
+					Long.parseLong(line[2]));
 		}
 	}
 }

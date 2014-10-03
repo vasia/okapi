@@ -51,7 +51,13 @@ public class FloatBooleanPairEdgeInputFormat extends TextEdgeInputFormat<LongWri
 		@Override
 		protected FloatBooleanPairWritable getValue(String[] line)
 				throws IOException {
-			return new FloatBooleanPairWritable(Float.parseFloat(line[2]), false);
+			if (line.length == 4) {
+				return new FloatBooleanPairWritable(Float.parseFloat(line[2]), Boolean.parseBoolean(line[3]));
+			}
+			else {
+				// initialize with false value
+				return new FloatBooleanPairWritable(Float.parseFloat(line[2]), false);
+			}
 		}
 	 }
 
