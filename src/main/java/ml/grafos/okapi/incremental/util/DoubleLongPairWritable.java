@@ -39,6 +39,16 @@ public class DoubleLongPairWritable implements Writable {
 		  this.inSPdegree = degree;
 		  return this;
 	  }
+	  
+	  public DoubleLongPairWritable decrementInSPdegree() {
+		  this.inSPdegree--;
+		  return this;
+	  }
+	  
+	  public DoubleLongPairWritable setDistance(double value) {
+		  this.distance = value;
+		  return this;
+	  }
 
 	@Override
 	public void readFields(DataInput in) throws IOException {
