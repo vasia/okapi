@@ -26,11 +26,23 @@ public class CommunityDetection extends
 	public static final float DELTA_DEFAULT = 0.5f;
 	/** Property name for delta */
 	public static final String DELTA = "community.detection.delta";
+	
+	/** Default value for preference */
+	public static final int PREFERENCE_DEFAULT = 1;
+	/** Property name for delta */
+	public static final String PREFERENCE = "community.detection.preference";
 
 	private long label;
 	private double score;
 	private HashMap<Long, Double> receivedLabelsWithScores = new HashMap<Long, Double>();
 	private HashMap<Long, Double> labelsWithHighestScore = new HashMap<Long, Double>();
+	
+	private final int max_supersteps = getContext().getConfiguration().getInt(
+		      MAX_SUPERSTEPS, MAX_SUPERSTEPS_DEFAULT);
+	private final float delta = getContext().getConfiguration().getFloat(
+		      DELTA, DELTA_DEFAULT);
+	private final int preference = getContext().getConfiguration().getInt(
+		      PREFERENCE, PREFERENCE_DEFAULT);
 
 	@Override
 	public void compute(
@@ -45,15 +57,15 @@ public class CommunityDetection extends
 			for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()){
 				LongWritable neighbor = e.getTargetVertexId();
 				sendMessage(neighbor, new LabelWithScoreWritable(label, 
-						score * vertex.getEdgeValue(neighbor).get()));
+						score * vertex.getEdgeValue(neighbor).get() * 
+						Math.pow(vertex.getNumEdges(), preference)));
 			}
 		}
 		// receive labels from neighbors
 		// compute the new score for each label
 		// choose the label with the highest score as the new label
 		// and re-score the newly chosen label
-		else if (getSuperstep() < getContext().getConfiguration().getInt(
-			      MAX_SUPERSTEPS, MAX_SUPERSTEPS_DEFAULT)) {
+		else if (getSuperstep() < max_supersteps) {
 			label = vertex.getValue().get();
 			
 			for (LabelWithScoreWritable m: messages) {
@@ -97,8 +109,7 @@ public class CommunityDetection extends
 			// re-score the new label
 			if (maxScoreLabel != label) {
 				// delta
-				highestScore -= getContext().getConfiguration().getFloat(
-					      DELTA, DELTA_DEFAULT) / (double) getSuperstep();
+				highestScore -= delta / (double) getSuperstep();
 			}
 			// else delta = 0
 			// update own label
@@ -107,13 +118,13 @@ public class CommunityDetection extends
 			// send out messages
 			for (Edge<LongWritable, DoubleWritable> e: vertex.getEdges()){
 				LongWritable neighbor = e.getTargetVertexId();
-				sendMessage(neighbor, new LabelWithScoreWritable(maxScoreLabel, highestScore));
+				sendMessage(neighbor, new LabelWithScoreWritable(maxScoreLabel, 
+						highestScore * vertex.getEdgeValue(neighbor).get() * 
+						Math.pow(vertex.getNumEdges(), preference)));
 			}
 		}
 		else {
 			vertex.voteToHalt();
 		}
 	}
-	
 }
-
