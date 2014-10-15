@@ -17,7 +17,15 @@ import org.apache.hadoop.io.LongWritable;
 public class CommunityDetection extends 
 	BasicComputation<LongWritable, LongWritable, DoubleWritable, LabelWithScoreWritable> {
 	
-	public static final int MAX_SUPERSTEPS = 30;
+	 /** Default number of supersteps */
+	public static final int MAX_SUPERSTEPS_DEFAULT = 30;
+	/** Property name for number of supersteps */
+	public static final String MAX_SUPERSTEPS = "community.detection.max.supersteps";
+	
+	/** Default value for delta */
+	public static final float DELTA_DEFAULT = 0.5f;
+	/** Property name for delta */
+	public static final String DELTA = "community.detection.delta";
 
 	private long label;
 	private double score;
@@ -44,7 +52,8 @@ public class CommunityDetection extends
 		// compute the new score for each label
 		// choose the label with the highest score as the new label
 		// and re-score the newly chosen label
-		else if (getSuperstep() < MAX_SUPERSTEPS) {
+		else if (getSuperstep() < getContext().getConfiguration().getInt(
+			      MAX_SUPERSTEPS, MAX_SUPERSTEPS_DEFAULT)) {
 			label = vertex.getValue().get();
 			
 			for (LabelWithScoreWritable m: messages) {
@@ -87,8 +96,9 @@ public class CommunityDetection extends
 			double highestScore = labelsWithHighestScore.get(maxScoreLabel);
 			// re-score the new label
 			if (maxScoreLabel != label) {
-				// delta = 0.5
-				highestScore -= 0.5f / (double) getSuperstep();
+				// delta
+				highestScore -= getContext().getConfiguration().getFloat(
+					      DELTA, DELTA_DEFAULT) / (double) getSuperstep();
 			}
 			// else delta = 0
 			// update own label
