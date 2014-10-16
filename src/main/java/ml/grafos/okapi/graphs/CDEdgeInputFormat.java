@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 
 import org.apache.giraph.io.EdgeReader;
-import org.apache.giraph.io.formats.IntNullTextEdgeInputFormat;
 import org.apache.giraph.io.formats.TextEdgeInputFormat;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -14,7 +13,6 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 public class CDEdgeInputFormat extends TextEdgeInputFormat<LongWritable, DoubleWritable> {
 	
-	 /** Splitter for endpoints */
 	  private static final Pattern SEPARATOR = Pattern.compile("[\t ]");
 
 	  @Override
@@ -23,10 +21,6 @@ public class CDEdgeInputFormat extends TextEdgeInputFormat<LongWritable, DoubleW
 	    return new LongDoubleTextEdgeReader();
 	  }
 
-	  /**
-	   * {@link org.apache.giraph.io.EdgeReader} associated with
-	   * {@link IntNullTextEdgeInputFormat}.
-	   */
 	  public class LongDoubleTextEdgeReader extends
 	      TextEdgeReaderFromEachLineProcessed<EdgeWithDoubleValue> {
 
