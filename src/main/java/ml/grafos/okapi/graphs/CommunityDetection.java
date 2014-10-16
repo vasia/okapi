@@ -37,12 +37,20 @@ public class CommunityDetection extends
 	private HashMap<Long, Double> receivedLabelsWithScores = new HashMap<Long, Double>();
 	private HashMap<Long, Double> labelsWithHighestScore = new HashMap<Long, Double>();
 	
-	private final int max_supersteps = getContext().getConfiguration().getInt(
-		      MAX_SUPERSTEPS, MAX_SUPERSTEPS_DEFAULT);
-	private final float delta = getContext().getConfiguration().getFloat(
-		      DELTA, DELTA_DEFAULT);
-	private final int preference = getContext().getConfiguration().getInt(
-		      PREFERENCE, PREFERENCE_DEFAULT);
+	private int max_supersteps;
+	private float delta;
+	private int preference;
+	
+	
+	@Override
+	  public void preSuperstep() {
+		max_supersteps = getContext().getConfiguration().getInt(
+			      MAX_SUPERSTEPS, MAX_SUPERSTEPS_DEFAULT);
+		delta = getContext().getConfiguration().getFloat(
+			      DELTA, DELTA_DEFAULT);
+		preference = getContext().getConfiguration().getInt(
+			      PREFERENCE, PREFERENCE_DEFAULT);
+	  }
 
 	@Override
 	public void compute(
