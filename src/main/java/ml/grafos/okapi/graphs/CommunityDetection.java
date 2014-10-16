@@ -89,17 +89,22 @@ public class CommunityDetection extends
 				else {
 					receivedLabelsWithScores.put(receivedLabel, receivedScore);
 				}
-				// store label with the highest score
-				if (labelsWithHighestScore.containsKey(receivedLabel)) {
-					double currentScore = labelsWithHighestScore.get(receivedLabel);
-					if (currentScore < receivedScore) {
-						// record the highest score
+				
+				// during the first superstep, each neighbor has a different label
+				// thus, there is no need for the highest-score map structure
+				if (getSuperstep() > 1) {
+					// store label with the highest score
+					if (labelsWithHighestScore.containsKey(receivedLabel)) {
+						double currentScore = labelsWithHighestScore.get(receivedLabel);
+						if (currentScore < receivedScore) {
+							// record the highest score
+							labelsWithHighestScore.put(receivedLabel, receivedScore);
+						}
+					}
+					else {
+						// first time we see this label
 						labelsWithHighestScore.put(receivedLabel, receivedScore);
 					}
-				}
-				else {
-					// first time we see this label
-					labelsWithHighestScore.put(receivedLabel, receivedScore);
 				}
 			}
 			// find the label with the highest score from the ones received
@@ -113,7 +118,16 @@ public class CommunityDetection extends
 			}
 			// find the highest score of maxScoreLabel in labelsWithHighestScore
 			// the edge data set always contains self-edges for every node
-			double highestScore = labelsWithHighestScore.get(maxScoreLabel);
+			
+			// if it's the first superstep, then we only need to check the 
+			// received labels
+			double highestScore;
+			if (getSuperstep() == 1) {
+				highestScore = maxScore;
+			} else {
+				highestScore = labelsWithHighestScore.get(maxScoreLabel);
+			}
+			 
 			// re-score the new label
 			if (maxScoreLabel != label) {
 				// delta
@@ -130,6 +144,9 @@ public class CommunityDetection extends
 						highestScore * vertex.getEdgeValue(neighbor).get() * 
 						Math.pow(vertex.getNumEdges(), preference)));
 			}
+			
+			receivedLabelsWithScores.clear();
+			labelsWithHighestScore.clear();
 		}
 		else {
 			vertex.voteToHalt();

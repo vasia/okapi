@@ -1,0 +1,16 @@
+#!/bin/bash
+
+###
+## Run the community detection program
+## for the semimetric case (before removing triangles)
+## or the non-semimetric case (after removing triangleS)
+###
+
+if test "$#" -ne 4; then
+	echo "Usage: run_community_detection <input_edges> <output_labels> <#threads> <#supersteps>"
+	exit
+fi
+
+
+hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.CommunityDetection -eif ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat -eip $1 -vof org.apache.giraph.io.formats.IdWithValueTextOutputFormat -op $2 -w 1  -ca giraph.oneToAllMsgSending=true -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges -ca giraph.SplitMasterWorker=false -ca giraph.numComputeThreads=$3 -ca giraph.numInputThreads=$3 -ca giraph.numOutputThreads=$3 -ca community.detection.max.supersteps=$4
+
