@@ -1,17 +1,19 @@
 package ml.grafos.okapi.graphs;
 
+import junit.framework.Assert;
 import ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat;
 
 import org.apache.giraph.conf.GiraphConfiguration;
 import org.apache.giraph.edge.HashMapEdges;
-import org.apache.giraph.io.formats.AdjacencyListTextVertexOutputFormat;
 import org.apache.giraph.utils.InternalVertexRunner;
 import org.junit.Test;
+
+import ml.grafos.okapi.io.formats.EdgesWithValuesVertexOutputFormat;
 
 public class TestSecondStepSemimetric {
 	
 	@Test
-	public void test() throws Exception {
+	public void testAllMetric() throws Exception {
         String[] graph = new String[] {
         		"1	2	3.0",
         		"1	3	2.0",
@@ -36,16 +38,57 @@ public class TestSecondStepSemimetric {
         conf.setMasterComputeClass(SecondStepSemimetric.MasterCompute.class);
         conf.setComputationClass(SecondStepSemimetric.MarkLocalMetric.class);
         conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
-        conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
-        //AVK: edge output format doesn't work
-//        conf.setEdgeOutputFormatClass(SrcIdDstIdEdgeValueTextOutputFormat.class);
+        conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
         conf.setOutEdgesClass(HashMapEdges.class);
 
         // run internally
         Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
+        System.out.println("Testing all-metric...");
         for (String s: results) {
+        	Assert.assertEquals(true, Boolean.parseBoolean(s.split("[\t ]")[3]));
         	System.out.println(s);
         }
+        System.out.println();
+    }
+	
+	@Test
+	public void testOneSemimetric() throws Exception {
+        String[] graph = new String[] {
+        		"1	2	1.0",
+        		"2	1	1.0",
+        		"2	3	2.0",
+        		"3	2	2.0",
+        		"3	4	3.0",
+        		"4	3	3.0",
+        		"4	1	7.0",
+        		"1	4	7.0",
+                 };
+	      	
+        // run to check results correctness
+        GiraphConfiguration conf = new GiraphConfiguration();
+        conf.setMasterComputeClass(SecondStepSemimetric.MasterCompute.class);
+        conf.setComputationClass(SecondStepSemimetric.MarkLocalMetric.class);
+        conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
+        conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
+        conf.setOutEdgesClass(HashMapEdges.class);
+
+        // run internally
+        Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
+        System.out.println("Testing one-semimetric...");
+        for (String s: results) {
+        	String[] tokens = s.split("[\t ]");
+        	if ((Integer.parseInt(tokens[0]) == 1) && (Integer.parseInt(tokens[1]) == 4)) {
+        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
+        	}
+        	else if ((Integer.parseInt(tokens[0]) == 4) && (Integer.parseInt(tokens[1]) == 1)) {
+        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
+        	}
+        	else {
+            	Assert.assertEquals(true, Boolean.parseBoolean(s.split("[\t ]")[3]));        		
+        	}
+        	System.out.println(s);
+        }
+        System.out.println();
     }
     
 }

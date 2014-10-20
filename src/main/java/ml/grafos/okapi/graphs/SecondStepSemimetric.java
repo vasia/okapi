@@ -243,10 +243,6 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
 	      setIncomingMessage(DoubleWritable.class);
 	      setOutgoingMessage(LongWritable.class);
         } 
-//      else {
-//        	// TODO: iterate steps 1 and 2 until no other metric edges can be identified
-//          haltComputation();
-//      }
     }
   }
 }
