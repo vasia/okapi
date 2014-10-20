@@ -77,6 +77,7 @@ public class SecondStepSemimetric  {
 			vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
 			sendMessage(trg, vertex.getId());
 		}
+		vertex.voteToHalt();
 	}
   
   }
@@ -102,24 +103,26 @@ public class SecondStepSemimetric  {
 				vertex.setEdgeValue(msg, vertex.getEdgeValue(msg).setMetric(true));
 			}
 			
-			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-				if(e.getValue().isMetric()) {
-					double lowestWeight = Double.MAX_VALUE;
-					//TODO: find a more efficient way to check this
-					for (Edge<LongWritable, DoubleBooleanPair> x : vertex.getEdges()) {
-						if (!(x.equals(e))) {
-							if (x.getValue().getWeight() < lowestWeight) {
-								lowestWeight  = x.getValue().getWeight();
+			if (vertex.getNumEdges() > 1) {
+				for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
+					if(e.getValue().isMetric()) {
+						double lowestWeight = Double.MAX_VALUE;
+						//TODO: find a more efficient way to check this
+						for (Edge<LongWritable, DoubleBooleanPair> x : vertex.getEdges()) {
+							if (x.getTargetVertexId() != e.getTargetVertexId()) {
+								if (x.getValue().getWeight() < lowestWeight) {
+									lowestWeight  = x.getValue().getWeight();
+								}
 							}
 						}
+						sendMessage(e.getTargetVertexId(), new DoubleWritable(
+						e.getValue().getWeight() + lowestWeight));
 					}
-					sendMessage(e.getTargetVertexId(), new DoubleWritable(
-							e.getValue().getWeight() + lowestWeight));
 				}
 			}
-	}
-	  
-  }
+			vertex.voteToHalt();
+		}
+  	}
   
   
   /**
@@ -139,6 +142,41 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
     public void compute(Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex, 
         Iterable<DoubleWritable> messages) throws IOException {
     	
+    	// find smallest-weight unlabeled edge(s)
+    	double lowestWeight = Double.MAX_VALUE;
+		List<LongWritable> unlabeledTargets  = new ArrayList<LongWritable>();
+		for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
+			if (!(e.getValue().isMetric())) { // unlabeled
+				if (e.getValue().weight < lowestWeight) {
+					lowestWeight = e.getValue().weight;
+					unlabeledTargets.clear();
+					unlabeledTargets.add(e.getTargetVertexId());
+				}
+				else if (e.getValue().weight == lowestWeight) {
+					unlabeledTargets.add(e.getTargetVertexId());
+				}
+			}			
+		}
+    	
+    	// check whether their weight is smaller than all the weights received
+		if (messages.iterator().hasNext()) {
+			boolean isMetric = true;
+			for (DoubleWritable msg : messages) {
+				if (msg.get() < lowestWeight) {
+					isMetric = false;
+					break;
+				}
+			}
+			// label the metric edges, if any found
+			// and let the neighbors know
+			if (isMetric) {
+				for (LongWritable trg : unlabeledTargets) {
+					vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
+					sendMessage(trg, vertex.getId());
+				}
+			}
+		}
+		vertex.voteToHalt();
     }
   }
 
@@ -195,19 +233,20 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
 
       long superstep = getSuperstep();  
       if (superstep==0) {
-        setComputation(MarkLocalMetric.class);
-      } else if (superstep==1){
-        setComputation(SendMsgToMetricEdge.class);
-        setIncomingMessage(LongWritable.class);
-        setOutgoingMessage(DoubleWritable.class);  
-      } else if (superstep==2){
-        setComputation(CheckSmallestUnlabeledEdge.class);
-        setIncomingMessage(DoubleWritable.class);
-        setOutgoingMessage(LongWritable.class);
-        } else {
-        	// TODO: iterate steps 1 and 2 until no other metric edges can be identified
-          haltComputation();
-      }
+    	  setComputation(MarkLocalMetric.class);
+      } else if ((superstep % 2) != 0){
+    	  setComputation(SendMsgToMetricEdge.class);
+    	  setIncomingMessage(LongWritable.class);
+    	  setOutgoingMessage(DoubleWritable.class);  
+      } else {
+	      setComputation(CheckSmallestUnlabeledEdge.class);
+	      setIncomingMessage(DoubleWritable.class);
+	      setOutgoingMessage(LongWritable.class);
+        } 
+//      else {
+//        	// TODO: iterate steps 1 and 2 until no other metric edges can be identified
+//          haltComputation();
+//      }
     }
   }
 }
