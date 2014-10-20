@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.giraph.aggregators.LongSumAggregator;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.AbstractComputation;
 import org.apache.giraph.graph.BasicComputation;
@@ -29,7 +30,7 @@ import org.apache.hadoop.io.Writable;
  * hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner \
  *   ml.grafos.okapi.graphs.SecondStepSemimetric\$MarkLocalMetric  \
  *   -mc  ml.grafos.okapi.graphs.SecondStepSemimetric\$MasterCompute  \
- *   -eif ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat  \
+ *   -eif ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat  \
  *   -eip $INPUT_EDGES \
  *   -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat \
  *   -op $OUTPUT \
@@ -39,48 +40,52 @@ import org.apache.hadoop.io.Writable;
  * 
  */
 public class SecondStepSemimetric  {
+	
+	/** The metric edges aggregator*/
+	public static final String METRIC_EDGES_AGGREGATOR = "metric.edges.aggregator";
 
-  /**
-   * This class implements the first step:
-   * Each node marks as metric its edge(s) with the lowest weight.
-   * Then, it sends a msg with its id and the edge weight,
-   * along the edge(s) with the lowest weight.
-   *
-   */
-  public static class MarkLocalMetric extends BasicComputation<LongWritable,
-  	NullWritable, DoubleBooleanPair, LongWritable> {
+	/**
+	 * This class implements the first step:
+	 * Each node marks as metric its edge(s) with the lowest weight.
+	 * Then, it sends a msg with its id and the edge weight,
+	 * along the edge(s) with the lowest weight.
+	 *
+	 */
+	public static class MarkLocalMetric extends BasicComputation<LongWritable,
+  		NullWritable, DoubleBooleanPair, LongWritable> {
 
-	@Override
-	public void compute(
+		@Override
+		public void compute(
 			Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex,
 			Iterable<LongWritable> messages) throws IOException {
 	
-		// find the edge(s) with the lowest weight
-		double lowestWeight = Double.MAX_VALUE;
-		List<LongWritable> metricEdgeTargets  = new ArrayList<LongWritable>();
-		for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-			if (e.getValue().weight < lowestWeight) {
-				lowestWeight = e.getValue().weight;
-				metricEdgeTargets.clear();
-				metricEdgeTargets.add(e.getTargetVertexId());
+			// find the edge(s) with the lowest weight
+			double lowestWeight = Double.MAX_VALUE;
+			List<LongWritable> metricEdgeTargets  = new ArrayList<LongWritable>();
+			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
+				if (e.getValue().weight < lowestWeight) {
+					lowestWeight = e.getValue().weight;
+					metricEdgeTargets.clear();
+					metricEdgeTargets.add(e.getTargetVertexId());
+				}
+				else if (e.getValue().weight == lowestWeight) {
+					metricEdgeTargets.add(e.getTargetVertexId());
+				}
 			}
-			else if (e.getValue().weight == lowestWeight) {
-				metricEdgeTargets.add(e.getTargetVertexId());
+			
+			// mark the lowest-weight edges as metric
+			// and send a msg to the edge target vertex,
+			// so that it can mark the symmetric edge as metric, too
+			// if it hasn't already done so
+			for (LongWritable trg : metricEdgeTargets) {
+				if (!(vertex.getEdgeValue(trg).isMetric())) {
+					vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
+					sendMessage(trg, vertex.getId());
+					aggregate(METRIC_EDGES_AGGREGATOR, new LongWritable(1));
+				}
 			}
 		}
-		
-		// mark the lowest-weight edges as metric
-		// and send a msg to the edge target vertex,
-		// so that it can mark the symmetric edge as metric, too
-		// if it hasn't already done so
-		for (LongWritable trg : metricEdgeTargets) {
-			vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
-			sendMessage(trg, vertex.getId());
-		}
-		vertex.voteToHalt();
 	}
-  
-  }
   
   /**
    * This class implements the second step:
@@ -92,31 +97,40 @@ public class SecondStepSemimetric  {
    */
   public static class SendMsgToMetricEdge extends AbstractComputation<LongWritable,
 	NullWritable, DoubleBooleanPair, LongWritable, DoubleWritable> {
-
+	  
 	@Override
 	public void compute(
 			Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex,
 			Iterable<LongWritable> messages) throws IOException {
 		
 			// receive msgs containing potentially new metric edges
+			boolean newMetricEdge = false;
 			for (LongWritable msg : messages) {
-				vertex.setEdgeValue(msg, vertex.getEdgeValue(msg).setMetric(true));
+				if (!(vertex.getEdgeValue(msg).isMetric())) {
+					vertex.setEdgeValue(msg, vertex.getEdgeValue(msg).setMetric(true));
+					newMetricEdge = true;
+					aggregate(METRIC_EDGES_AGGREGATOR, new LongWritable(1));
+				}
 			}
 			
-			if (vertex.getNumEdges() > 1) {
-				for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-					if(e.getValue().isMetric()) {
-						double lowestWeight = Double.MAX_VALUE;
-						//TODO: find a more efficient way to check this
-						for (Edge<LongWritable, DoubleBooleanPair> x : vertex.getEdges()) {
-							if (x.getTargetVertexId() != e.getTargetVertexId()) {
-								if (x.getValue().getWeight() < lowestWeight) {
-									lowestWeight  = x.getValue().getWeight();
+			// the first time this is executed, there is no need to check whether new metric edges
+			// were discovered
+			if ((getSuperstep() == 1) || (newMetricEdge)) {
+				if (vertex.getNumEdges() > 1) {
+					for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
+						if(e.getValue().isMetric()) {
+							double lowestWeight = Double.MAX_VALUE;
+							//TODO: find a more efficient way to check this
+							for (Edge<LongWritable, DoubleBooleanPair> x : vertex.getEdges()) {
+								if (x.getTargetVertexId() != e.getTargetVertexId()) {
+									if (x.getValue().getWeight() < lowestWeight) {
+										lowestWeight  = x.getValue().getWeight();
+									}
 								}
 							}
+							sendMessage(e.getTargetVertexId(), new DoubleWritable(
+							e.getValue().getWeight() + lowestWeight));
 						}
-						sendMessage(e.getTargetVertexId(), new DoubleWritable(
-						e.getValue().getWeight() + lowestWeight));
 					}
 				}
 			}
@@ -159,20 +173,21 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
 		}
     	
     	// check whether their weight is smaller than all the weights received
-		if (messages.iterator().hasNext()) {
-			boolean isMetric = true;
-			for (DoubleWritable msg : messages) {
-				if (msg.get() < lowestWeight) {
-					isMetric = false;
-					break;
-				}
+		boolean isMetric = true;
+		for (DoubleWritable msg : messages) {
+			if (msg.get() < lowestWeight) {
+				isMetric = false;
+				break;
 			}
 			// label the metric edges, if any found
 			// and let the neighbors know
 			if (isMetric) {
 				for (LongWritable trg : unlabeledTargets) {
-					vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
-					sendMessage(trg, vertex.getId());
+					if (!(vertex.getEdgeValue(trg).isMetric())) {
+						vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
+						sendMessage(trg, vertex.getId());
+						aggregate(METRIC_EDGES_AGGREGATOR, new LongWritable(1));
+					}
 				}
 			}
 		}
@@ -218,7 +233,7 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
     
     @Override
     public String toString() {
-      return weight + " " + metric	;
+      return weight + "\t" + metric	;
     }
   }
   
@@ -228,10 +243,18 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
    */
   public static class MasterCompute extends DefaultMasterCompute {
     
+	@Override
+    public final void initialize() throws InstantiationException,
+        IllegalAccessException {
+    	// register metric edges aggregator
+    	registerPersistentAggregator(METRIC_EDGES_AGGREGATOR, LongSumAggregator.class);
+	}
+	  
     @Override
     public void compute() {
 
-      long superstep = getSuperstep();  
+      long superstep = getSuperstep();
+      System.out.println("*** superstep: " + superstep +", metric edges: " + getAggregatedValue(METRIC_EDGES_AGGREGATOR));
       if (superstep==0) {
     	  setComputation(MarkLocalMetric.class);
       } else if ((superstep % 2) != 0){
@@ -242,7 +265,7 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
 	      setComputation(CheckSmallestUnlabeledEdge.class);
 	      setIncomingMessage(DoubleWritable.class);
 	      setOutgoingMessage(LongWritable.class);
-        } 
+      }
     }
   }
 }
