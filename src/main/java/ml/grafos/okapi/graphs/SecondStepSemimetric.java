@@ -4,6 +4,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.giraph.aggregators.LongSumAggregator;
@@ -15,13 +16,16 @@ import org.apache.giraph.master.DefaultMasterCompute;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableComparable;
 
 /**
  * This is a set of computation classes used to find 2nd-level metric edges
  * after triangles have been removed from the graph.
  * In essence, it marks edges as metric, when it is safe to make such an assumption.
  * We assume an undirected graph with symmetric edges.
+ * 
+ * IMPORTANT NOTE: This implementation assumes that the type of the OutEdges
+ * is TreeSetOutEdges.
  * 
  * 
  * You can run this algorithm by executing the command:
@@ -35,7 +39,7 @@ import org.apache.hadoop.io.Writable;
  *   -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat \
  *   -op $OUTPUT \
  *   -w $WORKERS \
- *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges
+ *   -ca giraph.outEdgesClass=org.apache.giraph.edge.TreeSetOutEdges
  *  </pre>
  * 
  */
@@ -60,29 +64,34 @@ public class SecondStepSemimetric  {
 			Iterable<LongWritable> messages) throws IOException {
 	
 			// find the edge(s) with the lowest weight
-			double lowestWeight = Double.MAX_VALUE;
 			List<LongWritable> metricEdgeTargets  = new ArrayList<LongWritable>();
-			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-				if (e.getValue().weight < lowestWeight) {
-					lowestWeight = e.getValue().weight;
-					metricEdgeTargets.clear();
-					metricEdgeTargets.add(e.getTargetVertexId());
-				}
-				else if (e.getValue().weight == lowestWeight) {
-					metricEdgeTargets.add(e.getTargetVertexId());
+			Iterator<Edge<LongWritable, DoubleBooleanPair>> edgeIterator = 
+					vertex.getEdges().iterator();
+			if (edgeIterator.hasNext()) {
+				Edge<LongWritable, DoubleBooleanPair> first = edgeIterator.next(); 
+				double lowestWeight = first.getValue().getWeight();
+				metricEdgeTargets.add(first.getTargetVertexId());
+				
+				while (edgeIterator.hasNext()) {
+					Edge<LongWritable, DoubleBooleanPair> edge = edgeIterator.next();
+					assert(edge.getValue().getWeight() >= lowestWeight);
+					if (edge.getValue().getWeight() > lowestWeight) {
+						break;
+					}
+					else {
+						metricEdgeTargets.add(edge.getTargetVertexId());
+					}
 				}
 			}
-			
+
 			// mark the lowest-weight edges as metric
 			// and send a msg to the edge target vertex,
 			// so that it can mark the symmetric edge as metric, too
 			// if it hasn't already done so
 			for (LongWritable trg : metricEdgeTargets) {
-				if (!(vertex.getEdgeValue(trg).isMetric())) {
-					vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
-					sendMessage(trg, vertex.getId());
-					aggregate(METRIC_EDGES_AGGREGATOR, new LongWritable(1));
-				}
+				vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setMetric(true));
+				sendMessage(trg, vertex.getId());
+				aggregate(METRIC_EDGES_AGGREGATOR, new LongWritable(1));
 			}
 		}
 	}
@@ -115,21 +124,33 @@ public class SecondStepSemimetric  {
 			
 			// the first time this is executed, there is no need to check whether new metric edges
 			// were discovered
+			double weightToSend;
 			if ((getSuperstep() == 1) || (newMetricEdge)) {
 				if (vertex.getNumEdges() > 1) {
-					for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-						if(e.getValue().isMetric()) {
-							double lowestWeight = Double.MAX_VALUE;
-							//TODO: find a more efficient way to check this
-							for (Edge<LongWritable, DoubleBooleanPair> x : vertex.getEdges()) {
-								if (x.getTargetVertexId() != e.getTargetVertexId()) {
-									if (x.getValue().getWeight() < lowestWeight) {
-										lowestWeight  = x.getValue().getWeight();
-									}
-								}
+					Iterator<Edge<LongWritable, DoubleBooleanPair>> edges = vertex.getEdges().iterator();
+					if (edges.hasNext()) {
+						// the first msg is the weight of the first two edges
+						Edge<LongWritable, DoubleBooleanPair> first = edges.next();
+						weightToSend = first.getValue().getWeight();
+						if (edges.hasNext()) {
+							sendMessage(first.getTargetVertexId(), new DoubleWritable(weightToSend
+									+ edges.next().getValue().getWeight()));
+						}
+						
+						// for the rest of the messages, it is the weight of the current edge
+						// plus the weight of the first edge (guaranteed to be the smallest)
+						while(edges.hasNext()) {
+							Edge<LongWritable, DoubleBooleanPair> e = edges.next();
+							if(e.getValue().isMetric()) {
+								weightToSend = first.getValue().getWeight() + e.getValue().getWeight();
+								sendMessage(e.getTargetVertexId(), new DoubleWritable(weightToSend));
 							}
-							sendMessage(e.getTargetVertexId(), new DoubleWritable(
-							e.getValue().getWeight() + lowestWeight));
+							else {
+								// we don't need to check any further for metric edges
+								// if we encountered an unlabeled edge, then all the following edges
+								// are also unlabeled
+								break; 
+							}
 						}
 					}
 				}
@@ -157,28 +178,44 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
         Iterable<DoubleWritable> messages) throws IOException {
     	
     	// find smallest-weight unlabeled edge(s)
-    	double lowestWeight = Double.MAX_VALUE;
-		List<LongWritable> unlabeledTargets  = new ArrayList<LongWritable>();
-		for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
-			if (!(e.getValue().isMetric())) { // unlabeled
-				if (e.getValue().weight < lowestWeight) {
-					lowestWeight = e.getValue().weight;
-					unlabeledTargets.clear();
-					unlabeledTargets.add(e.getTargetVertexId());
+    	List<LongWritable> unlabeledTargets  = new ArrayList<LongWritable>();
+		Iterator<Edge<LongWritable, DoubleBooleanPair>> edgeIterator = 
+				vertex.getEdges().iterator();
+		double lowestWeight = Double.MAX_VALUE;
+		
+		if (edgeIterator.hasNext()) {
+			Edge<LongWritable, DoubleBooleanPair> edge = edgeIterator.next();
+			while ((edge.getValue().isMetric()) && (edgeIterator.hasNext())) {
+				edge = edgeIterator.next();
+			}
+				
+			if (!(edge.getValue().isMetric())) {
+				// first encountered unlabeled edge
+				lowestWeight = edge.getValue().getWeight();
+				unlabeledTargets.add(edge.getTargetVertexId());
+				
+				// check if there are more with the same weight
+				while (edgeIterator.hasNext()) {
+					Edge<LongWritable, DoubleBooleanPair> nextEdge = edgeIterator.next();
+					assert(nextEdge.getValue().getWeight() >= lowestWeight);
+					if (nextEdge.getValue().getWeight() > lowestWeight) {
+						break;
+					}
+					else {
+						unlabeledTargets.add(nextEdge.getTargetVertexId());
+					}
 				}
-				else if (e.getValue().weight == lowestWeight) {
-					unlabeledTargets.add(e.getTargetVertexId());
-				}
-			}			
+			}
 		}
     	
     	// check whether their weight is smaller than all the weights received
-		boolean isMetric = true;
+		boolean isMetric = messages.iterator().hasNext();
 		for (DoubleWritable msg : messages) {
 			if (msg.get() < lowestWeight) {
 				isMetric = false;
 				break;
 			}
+		}
 			// label the metric edges, if any found
 			// and let the neighbors know
 			if (isMetric) {
@@ -190,7 +227,7 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
 					}
 				}
 			}
-		}
+	
 		vertex.voteToHalt();
     }
   }
@@ -200,7 +237,8 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
    * that denotes whether this edge is metric.
    *
    */
-  public static class DoubleBooleanPair implements Writable {
+  @SuppressWarnings("rawtypes")
+public static class DoubleBooleanPair implements WritableComparable {
     double weight;
     boolean metric = false;
 
@@ -235,6 +273,20 @@ public static class CheckSmallestUnlabeledEdge extends AbstractComputation<LongW
     public String toString() {
       return weight + "\t" + metric	;
     }
+
+	@Override
+	public int compareTo(Object other) {
+		DoubleBooleanPair otherPair = (DoubleBooleanPair) other;
+		if (this.getWeight() < otherPair.getWeight()) {
+			return -1;
+		}
+		else if (this.getWeight() > otherPair.getWeight()) {
+			return 1;
+		}
+		else {
+			return 0;
+		}
+	}
   }
   
   /**

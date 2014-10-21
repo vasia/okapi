@@ -1,10 +1,10 @@
 package ml.grafos.okapi.graphs;
 
 import junit.framework.Assert;
+import ml.grafos.okapi.common.edge.TreeSetOutEdges;
 import ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat;
 
 import org.apache.giraph.conf.GiraphConfiguration;
-import org.apache.giraph.edge.HashMapEdges;
 import org.apache.giraph.utils.InternalVertexRunner;
 import org.junit.Test;
 
@@ -39,7 +39,7 @@ public class TestSecondStepSemimetric {
         conf.setComputationClass(SecondStepSemimetric.MarkLocalMetric.class);
         conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
         conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
-        conf.setOutEdgesClass(HashMapEdges.class);
+        conf.setOutEdgesClass(TreeSetOutEdges.class);
 
         // run internally
         Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
@@ -70,7 +70,7 @@ public class TestSecondStepSemimetric {
         conf.setComputationClass(SecondStepSemimetric.MarkLocalMetric.class);
         conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
         conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
-        conf.setOutEdgesClass(HashMapEdges.class);
+        conf.setOutEdgesClass(TreeSetOutEdges.class);
 
         // run internally
         Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
