@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.edge.EdgeFactory;
 import org.apache.giraph.edge.OutEdges;
+import org.apache.giraph.utils.WritableUtils;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.junit.Test;
@@ -113,4 +114,45 @@ public class TestTreeSetOutEdges {
 	    assertEquals(4, edges.size());
 	    	    
 	  }
+	  
+	  @Test
+		public void testSerialize() {
+		  OutEdges<LongWritable, DoubleWritable> edges = instantiateOutEdges(TreeSetOutEdges.class);
+
+		    List<Edge<LongWritable, DoubleWritable>> initialEdges = Lists.newArrayList(
+		        EdgeFactory.create(new LongWritable(1), new DoubleWritable(1)),
+		        EdgeFactory.create(new LongWritable(2), new DoubleWritable(2)),
+		        EdgeFactory.create(new LongWritable(3), new DoubleWritable(3)),
+		        EdgeFactory.create(new LongWritable(4), new DoubleWritable(4)));
+		
+		    edges.initialize(initialEdges);
+			
+			// Serialize from
+			byte[] data = WritableUtils.writeToByteArray(edges, edges);
+			
+			// De-serialize to
+			OutEdges<LongWritable, DoubleWritable> to1 = instantiateOutEdges(TreeSetOutEdges.class);
+			OutEdges<LongWritable, DoubleWritable> to2 = instantiateOutEdges(TreeSetOutEdges.class);
+			
+			WritableUtils.readFieldsFromByteArray(data, to1, to2);
+			
+			// all coordinates should be equal
+			List<Edge<LongWritable, DoubleWritable>> to1Edges = new ArrayList<Edge<LongWritable, DoubleWritable>>();
+			for (Edge<LongWritable, DoubleWritable> e : to1) {
+				to1Edges.add(e);
+			}
+			
+			List<Edge<LongWritable, DoubleWritable>> to2Edges = new ArrayList<Edge<LongWritable, DoubleWritable>>();
+			for (Edge<LongWritable, DoubleWritable> e : to2) {
+				to2Edges.add(e);
+			}
+			
+			assertEquals(edges.size(), to1.size());
+			assertEquals(edges.size(), to2.size());
+			
+			for (int i=0; i>edges.size(); i++) {
+				assertEquals(to1Edges.get(i).getTargetVertexId(), to2Edges.get(i).getTargetVertexId());
+				assertEquals(to1Edges.get(i).getValue(), to2Edges.get(i).getValue());
+			}
+		}
 }
