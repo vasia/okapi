@@ -52,7 +52,7 @@ public class TestSecondStepSemimetric {
     }
 	
 	@Test
-	public void testOneSemimetric() throws Exception {
+	public void testSemimetric() throws Exception {
         String[] graph = new String[] {
         		"1	2	1.0",
         		"2	1	1.0",
@@ -62,6 +62,8 @@ public class TestSecondStepSemimetric {
         		"4	3	3.0",
         		"4	1	7.0",
         		"1	4	7.0",
+        		"2	4	5.0",
+        		"4	2	5.0"
                  };
 	      	
         // run to check results correctness
@@ -81,6 +83,12 @@ public class TestSecondStepSemimetric {
         		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
         	}
         	else if ((Integer.parseInt(tokens[0]) == 4) && (Integer.parseInt(tokens[1]) == 1)) {
+        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
+        	}
+        	else if ((Integer.parseInt(tokens[0]) == 2) && (Integer.parseInt(tokens[1]) == 4)) {
+        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
+        	}
+        	else if ((Integer.parseInt(tokens[0]) == 4) && (Integer.parseInt(tokens[1]) == 2)) {
         		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
         	}
         	else {

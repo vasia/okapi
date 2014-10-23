@@ -10,7 +10,7 @@
 
 	<properties>
 		<giraph.version>1.1.0-SNAPSHOT</giraph.version>
-		<hadoop.version>2.2.0</hadoop.version>
+		<hadoop.version>1.0.3</hadoop.version>
 		<giraph.scope>compile</giraph.scope>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -84,7 +84,7 @@
 		<profile>
 			<id>hadoop_preyarn</id>
 			<properties>
-				<hadoop.version>0.20.203.0</hadoop.version>
+				<hadoop.version>1.0.3</hadoop.version>
 			</properties>
 			<dependencies>
 				<dependency>
