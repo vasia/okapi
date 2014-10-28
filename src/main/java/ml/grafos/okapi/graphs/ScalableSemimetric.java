@@ -24,7 +24,6 @@ import org.apache.hadoop.io.WritableComparable;
  * algorithm, while the rest are idle.
  * The algorithm finishes, when all vertices have executed the computation.
  * In the case of semimetric edge removal, this model is possible, because
- * in each computation step, each of the messages is processed independently.
  * Message are neither aggregated nor combined. 
  * 
  * This implementation assumes numeric vertex ids.
@@ -37,7 +36,7 @@ import org.apache.hadoop.io.WritableComparable;
  * hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner \
  *   ml.grafos.okapi.graphs.ScalableSemimetric\$PropagateId  \
  *   -mc  ml.grafos.okapi.graphs.ScalableSemimetric\$SemimetricMasterCompute  \
- *   -eif ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat  \
+ *   -eif ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat  \
  *   -eip $INPUT_EDGES \
  *   -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat \
  *   -op $OUTPUT \
@@ -48,13 +47,6 @@ import org.apache.hadoop.io.WritableComparable;
  * 
  */
 public class ScalableSemimetric  {
-  
-  /** Indicates whether semimetric edges will be removed in the output graph. */
-  public static final String REMOVE_EDGES_ENABLED = 
-      "semimetric.remove.edges.enabled";
-
-  /** Default value for removing semimetric edges in the output graph. */
-  public static final boolean REMOVE_EDGES_ENABLED_DEFAULT = true;
   
   /** Indicates in how many sub-supersteps to divide the computation. */
   public static final String NUMBER_OF_SUBSUPERSTEPS = "semimetric.subsupersteps";
@@ -188,9 +180,6 @@ public class ScalableSemimetric  {
 	          double weight_bc = msg.getWeight(); 
 	          
 	          if (weight_ab+weight_ac < weight_bc) {
-	        	  // TODO: how do we label the edge? this vertex cannot change its value
-	        	  // send msg to the target vertex? If yes, when should it be handled?
-	        	  // and do we need to tag the message with its type?
 	        	  sendMessage(id1, id2);
 	        	  sendMessage(id2, id1);
 	          } else if (weight_ab+weight_bc < weight_ac) {
@@ -211,36 +200,41 @@ public class ScalableSemimetric  {
 
   /**
    * 
-   * Remove all edges that have been labeled as semimetric.  
+   * Request remove all edges that have been labeled as semimetric.  
    * 
    *
    */
   public static class Finalize extends AbstractComputation<LongWritable, 
-  NullWritable, DoubleBooleanPair, Writable, Writable> {
+  NullWritable, DoubleBooleanPair, LongWritable, Writable> {
 
-	  boolean removeEdgesEnabled;
-	  
-	  @Override
-	    public void preSuperstep() {
-	      removeEdgesEnabled = getContext().getConfiguration().getBoolean(
-	          REMOVE_EDGES_ENABLED, REMOVE_EDGES_ENABLED_DEFAULT);
-	  }
-	  
     @Override
     public void compute(Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex,
-        Iterable<Writable> messages) throws IOException {
+        Iterable<LongWritable> messages) throws IOException {
+    	
+    	// handle set-semimetric-label messages
+    	for (LongWritable trg: messages) {
+    		vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setSemimetric(true));
+    	}
     	
     	for (Edge<LongWritable, DoubleBooleanPair> edge : vertex.getEdges()) {
     		if (edge.getValue().isSemimetric()) {
     			// remove edge
-    			if (removeEdgesEnabled) {
-    				vertex.removeEdges(edge.getTargetVertexId());
-    			}
+    			removeEdgesRequest(vertex.getId(), edge.getTargetVertexId());	
     		}
     	}
+    }
+  }
+  
+  public static class RemoveEdges extends AbstractComputation<LongWritable, 
+  NullWritable, DoubleBooleanPair, Writable, Writable> {
+
+    @Override
+    public void compute(Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex,
+        Iterable<Writable> messages) throws IOException {
       vertex.voteToHalt();
     }
   }
+  
 
   /**
    * Represents an undirected edge with a symmetric weight.
@@ -343,14 +337,12 @@ public class ScalableSemimetric  {
     
     @Override
     public void compute() {
-      boolean removeEdgesEnabled = getConf().getBoolean(
-          REMOVE_EDGES_ENABLED, REMOVE_EDGES_ENABLED_DEFAULT);
-      
+
       int subSupersteps = getContext().getConfiguration()
 			  .getInt(NUMBER_OF_SUBSUPERSTEPS, NUMBER_OF_SUBSUPERSTEPS_DEFAULT);
 
       long superstep = getSuperstep(); 
-      if (superstep < (subSupersteps*3)) {
+      if (superstep < ((subSupersteps*3) + 1)) {
 	      if ((superstep%3)==0) {
 	        setComputation(PropagateId.class);
 	        setIncomingMessage(LongWritable.class);
@@ -363,18 +355,22 @@ public class ScalableSemimetric  {
 	        setComputation(FindSemimetricEdges.class);
 	        setIncomingMessage(SimpleEdge.class);
 	        setOutgoingMessage(LongWritable.class);
-	      }  else {
-	        if (removeEdgesEnabled) {
-	         // remove the semimetric edges
-	          setComputation(Finalize.class);
-	          setIncomingMessage(LongWritable.class);
-	          setOutgoingMessage(LongWritable.class);
-	        } 
-	      }
-      } else {
-          // Otherwise we can stop here.
-          haltComputation();
+	      }  
+      } else if (superstep == ((subSupersteps*3) + 1)) {
+  	         // remove the semimetric edges
+  	          setComputation(Finalize.class);
+  	          setIncomingMessage(LongWritable.class);
+  	          setOutgoingMessage(LongWritable.class); 
         }
+      else if (superstep == ((subSupersteps*3) + 2)) {
+	         // remove the semimetric edges
+	          setComputation(RemoveEdges.class);
+	          setIncomingMessage(LongWritable.class);
+	          setOutgoingMessage(LongWritable.class); 
+      }
+      else {
+    	  haltComputation();
+      }
     }
   }
 }
