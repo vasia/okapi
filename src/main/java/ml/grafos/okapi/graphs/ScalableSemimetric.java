@@ -87,7 +87,9 @@ public class ScalableSemimetric  {
     	
     	// handle set-semimetric-label messages
     	for (LongWritable trg: messages) {
-    		vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setSemimetric(true));
+    		if (vertex.getEdgeValue(trg) != null) {
+    			vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setSemimetric(true));
+    		}
     	}
     }
   } 
@@ -101,15 +103,6 @@ public class ScalableSemimetric  {
    */
   public static class ForwardEdge extends AbstractComputation<LongWritable, 
   Writable, DoubleBooleanPair, LongWritable, SimpleEdge> {
-
-	  int subSupersteps;
-	  
-	  @Override
-	  public void preSuperstep() {
-		  subSupersteps = getContext().getConfiguration()
-				  .getInt(NUMBER_OF_SUBSUPERSTEPS, NUMBER_OF_SUBSUPERSTEPS_DEFAULT);
-	  }
-	  
     @Override
     public void compute(Vertex<LongWritable, Writable, DoubleBooleanPair> vertex, 
         Iterable<LongWritable> messages) throws IOException {
@@ -141,15 +134,7 @@ public class ScalableSemimetric  {
    */
   public static class FindSemimetricEdges extends AbstractComputation<LongWritable, 
     Writable, DoubleBooleanPair, SimpleEdge, WritableComparable> {
-
-    int subSupersteps;
-
-    @Override
-    public void preSuperstep() {
-      subSupersteps = getContext().getConfiguration()
-			  .getInt(NUMBER_OF_SUBSUPERSTEPS, NUMBER_OF_SUBSUPERSTEPS_DEFAULT);
-    }
-
+	  
     @Override
     public void compute(Vertex<LongWritable, Writable, DoubleBooleanPair> vertex, 
         Iterable<SimpleEdge> messages) 
@@ -213,7 +198,9 @@ public class ScalableSemimetric  {
     	
     	// handle set-semimetric-label messages
     	for (LongWritable trg: messages) {
-    		vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setSemimetric(true));
+    		if (vertex.getEdgeValue(trg) != null) {
+    			vertex.setEdgeValue(trg, vertex.getEdgeValue(trg).setSemimetric(true));
+    		}
     	}
     	
     	for (Edge<LongWritable, DoubleBooleanPair> edge : vertex.getEdges()) {
@@ -311,7 +298,7 @@ public class ScalableSemimetric  {
       
       @Override
       public String toString() {
-        return weight + "\t" + semimetric	;
+        return weight + "";
       }
 
   	@Override

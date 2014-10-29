@@ -39,6 +39,7 @@ public class TestScalableSemimetric {
         conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
         conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
         conf.setOutEdgesClass(HashMapEdges.class);
+        conf.setInt("semimetric.subsupersteps", 3);
 
         // run internally
         Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
