@@ -1,0 +1,11 @@
+#!/bin/bash
+
+###
+## Find 2st-level semimetric edges
+###
+
+if test "$#" -ne 3; then
+	echo "Usage: run_secondStepSemimetric <input_edges> <output_edges> <#threads>"
+	exit
+fi
+hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.SecondStepSemimetric\$MarkLocalMetric -mc  ml.grafos.okapi.graphs.SecondStepSemimetric\$MasterCompute -eif ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat -eip $1 -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $2 -w 1 -ca giraph.outEdgesClass=ml.grafos.okapi.common.edge.TreeSetOutEdges -ca giraph.SplitMasterWorker=false -ca giraph.numComputeThreads=$3 -ca giraph.numInputThreads=$3 -ca giraph.numOutputThreads=$3 -ca giraph.useSuperstepCounters=false

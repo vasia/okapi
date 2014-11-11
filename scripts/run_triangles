@@ -1,0 +1,11 @@
+#!/bin/bash
+
+###
+## Find 1st-level semimetric edges
+###
+
+if test "$#" -ne 3; then
+	echo "Usage: run_triangles <input_edges> <output_edges> <#threads>"
+	exit
+fi
+hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.Semimetric\$PropagateId -mc  ml.grafos.okapi.graphs.Semimetric\$SemimetricMasterCompute -eif ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat -eip $1 -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $2 -w 1 -ca giraph.oneToAllMsgSending=true -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges -ca giraph.SplitMasterWorker=false -ca giraph.numComputeThreads=$3 -ca giraph.numInputThreads=$3 -ca giraph.numOutputThreads=$3 -ca mapred.child.java.opts=-Xmx16g -ca giraph.nettyCompressionAlgorithm=SNAPPY

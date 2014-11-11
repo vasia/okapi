@@ -1,0 +1,13 @@
+#!/bin/bash
+
+###
+## Run the giraph Single Shortest Paths application
+###
+
+if test "$#" -ne 2; then
+	echo "Usage: run_SSSP <input_edges> <output>"
+	exit
+fi
+
+/home/b.vka/workspace/hadoop-1.2.1/hadoop-1.2.1/bin/hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.SingleSourceShortestPaths -eif ml.grafos.okapi.io.formats.LongFloatTextEdgeInputFormat -eip $1 -vof  ml.grafos.okapi.io.formats.EdgesWithValuesVertexOutputFormat -op $2 -w 1 -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges -ca giraph.SplitMasterWorker=false -ca sssp.source.id=201
+
