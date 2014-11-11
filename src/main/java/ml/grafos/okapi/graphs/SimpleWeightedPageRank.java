@@ -65,11 +65,8 @@ public class SimpleWeightedPageRank extends BasicComputation<LongWritable,
 	    	
 	    	if (getSumOfWeights(vertex) > 0 ) {
 	    		partial_rank.set(((vertex.getValue().get() * e.getValue().get()) / getSumOfWeights(vertex)));
-	    	}
-	    	else {
-	    		partial_rank.set(0.0);
-	    	}
 	    		sendMessage(e.getTargetVertexId(), partial_rank);
+	    	}	
 	    	}
     	} else {
     		vertex.voteToHalt();
