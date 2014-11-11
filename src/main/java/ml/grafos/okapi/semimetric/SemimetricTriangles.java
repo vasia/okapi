@@ -1,4 +1,4 @@
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -15,9 +15,9 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 
 /**
- * This is a set of computation classes used to find semimetric edges in the
+ * This is a set of computation classes used to find semi-metric edges in the
  * triangles of a graph. If vertices A, B, C form a triangle, then edge AB is
- * semimetric if D(A,B) > D(A,C)+D(C,B).
+ * semi-metric if D(A,B) > D(A,C)+D(C,B).
  * 
  * 
  * You can run this algorithm by executing the command:
@@ -37,13 +37,13 @@ import org.apache.hadoop.io.WritableComparable;
  * 
  * @author dl
  */
-public class Semimetric  {
+public class SemimetricTriangles  {
   
-  /** Indicates whether semimetric edges will be removed in the output graph. */
+  /** Indicates whether semi-metric edges will be removed in the output graph. */
   public static final String REMOVE_EDGES_ENABLED = 
       "semimetric.remove.edges.enabled";
 
-  /** Default value for removing semimetric edges in the output graph. */
+  /** Default value for removing semi-metric edges in the output graph. */
   public static final boolean REMOVE_EDGES_ENABLED_DEFAULT = true;
 
 
@@ -110,13 +110,14 @@ public class Semimetric  {
 
   /**
    * This class implements the third phase of the algorithm that detects whether
-   * a triangle has closed and whether there is a semimetric edge in this
+   * a triangle has closed and whether there is a semi-metric edge in this
    * triangle.
    * 
    * @author dl
    *
    */
-  public static class FindSemimetricEdges extends AbstractComputation<LongWritable, 
+  @SuppressWarnings("rawtypes")
+public static class FindSemimetricEdges extends AbstractComputation<LongWritable, 
     Writable, DoubleWritable, SimpleEdge, WritableComparable> {
 
     boolean removeEdgesEnabled;
@@ -241,7 +242,7 @@ public class Semimetric  {
   }
   
   /**
-   * Use this MasterCompute implementation to find the semimetric edges.
+   * Use this MasterCompute implementation to find the semi-metric edges.
    * 
    * @author dl
    *

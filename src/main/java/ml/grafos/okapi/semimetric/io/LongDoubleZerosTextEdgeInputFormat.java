@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.io.formats;
+package ml.grafos.okapi.semimetric.io;
 
 import java.io.IOException;
 import java.util.regex.Pattern;
@@ -30,7 +30,8 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
  * Simple text-based {@link org.apache.giraph.io.EdgeInputFormat} for
  * weighted graphs with long IDs and double values.
  *
- * Each line consists of: <source id> <target id> <edge weight> 
+ * Each line consists of: <source id> <target id>
+ * This format reads the src and trg ids and adds a zero weight on the edge
  */
 public class LongDoubleZerosTextEdgeInputFormat extends
     TextEdgeInputFormat<LongWritable, DoubleWritable> {

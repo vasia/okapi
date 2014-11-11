@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric.similarity;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -37,8 +37,9 @@ import org.apache.hadoop.util.hash.Hash;
 import com.google.common.primitives.Longs;
 
 /**
- * Used to compute different types of similarity. These implementations work
- * for directed and undirected graphs.
+ * 
+ * This class computes the Jaccard similarity or distance
+ * for each pair of neighbors in an undirected unweighted graph.  
  * 
  * To get the exact Jaccard similarity, run the command:
  * 
@@ -54,20 +55,19 @@ import com.google.common.primitives.Longs;
  *   -ca giraph.oneToAllMsgSending=true \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
  *   -ca jaccard.approximation.enabled=false
- *   -ca distance.conversion.enabled=false
- * </pre>
+ *   
+ *   Use -ca distance.conversion.enabled=true to get the Adamic-Adar distance instead.
+ *
  * 
  * To get the approximate Jaccard similarity, replace the SendFriendsList class
  * in the command with the SendFriendsBloomFilter class and set the 
  * jaccard.approximation.enabled parameter to true.
  * 
- * To enable conversion of the Jaccard similarity values to distances, 
- * set the distance.scaling.enabled parameter to true. 
  * 
  * @author dl
  *
  */
-public class Similarity {
+public class JaccardWeighting {
 
   /** Enables the approximation computation */
   public static final String JACCARD_APPROXIMATION = 

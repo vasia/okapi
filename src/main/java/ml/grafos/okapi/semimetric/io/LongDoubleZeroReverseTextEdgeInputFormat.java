@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.io.formats;
+package ml.grafos.okapi.semimetric.io;
 
 import java.io.IOException;
 
@@ -30,7 +30,9 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
  * 
  * Note that this version also creates the reverse edges.
  *
- * Each line consists of: <source id> <target id> <edge weight>
+ * Each line consists of: <source id> <target id>
+ * Reads an edge and also creates its reverse.
+ * This format reads the src and trg ids and adds a zero weight on the edge.
  *
  */
 public class LongDoubleZeroReverseTextEdgeInputFormat

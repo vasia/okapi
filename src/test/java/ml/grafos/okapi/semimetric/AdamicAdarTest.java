@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric;
 
 import static org.junit.Assert.*;
 
@@ -21,6 +21,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat;
+import ml.grafos.okapi.semimetric.similarity.AdamicAdarWeighting;
 
 import org.apache.giraph.conf.GiraphConfiguration;
 import org.apache.giraph.edge.HashMapEdges;
@@ -28,7 +29,7 @@ import org.apache.giraph.io.formats.AdjacencyListTextVertexOutputFormat;
 import org.apache.giraph.utils.InternalVertexRunner;
 import org.junit.Test;
 
-public class AdamicAdarSimilarityTest {
+public class AdamicAdarTest {
 	
 	final double delta = 0.0001;
 
@@ -52,8 +53,8 @@ public class AdamicAdarSimilarityTest {
     };
 
     GiraphConfiguration conf = new GiraphConfiguration();
-    conf.setComputationClass(AdamicAdarSimilarity.SendFriendsListAndValue.class);
-    conf.setMasterComputeClass(AdamicAdarSimilarity.MasterCompute.class);
+    conf.setComputationClass(AdamicAdarWeighting.SendFriendsListAndValue.class);
+    conf.setMasterComputeClass(AdamicAdarWeighting.MasterCompute.class);
     conf.setEdgeInputFormatClass(LongDoubleTextEdgeInputFormat.class);
     conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
     conf.setOutEdgesClass(HashMapEdges.class);

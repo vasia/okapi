@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric.similarity;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -36,8 +36,9 @@ import org.apache.hadoop.io.Writable;
 import com.google.common.primitives.Longs;
 
 /**
- * Used to compute different types of similarity. These implementations work
- * for directed and undirected graphs.
+ * 
+ * This class computes the Adamic-Adar similarity or distance
+ * for each pair of neighbors in an undirected unweighted graph.  
  * 
  * To get the exact Adamic-Adar similarity, run the command:
  * 
@@ -53,14 +54,15 @@ import com.google.common.primitives.Longs;
  *   -ca giraph.oneToAllMsgSending=true \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
  *   -ca jaccard.approximation.enabled=false
- *   -ca distance.conversion.enabled=true
  * </pre>
+ * 
+ * Use -ca distance.conversion.enabled=true to get the Adamic-Adar distance instead.
  * 
  * To get the approximate Adamic-Adar similarity 
  * set the adamicadar.approximation.enabled parameter to true.
  *
  */
-public class AdamicAdarSimilarity {
+public class AdamicAdarWeighting {
 
   /** Enables the approximation computation */
   public static final String ADAMICADAR_APPROXIMATION = 
@@ -92,7 +94,7 @@ public class AdamicAdarSimilarity {
       "distance.conversion.enabled";
   
   /** Default value for distance conversion */
-  public static final boolean DISTANCE_CONVERSION_DEFAULT = true;
+  public static final boolean DISTANCE_CONVERSION_DEFAULT = false;
 
   /**
    * Implements the first step in the Adamic-Adar similarity computation.
