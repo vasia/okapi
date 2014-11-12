@@ -72,7 +72,7 @@ public class SemimetricTriangles  {
   } 
 
   /**
-   * This class implements the second phase of the algorithm tha finds all
+   * This class implements the second phase of the algorithm that finds all
    * unique triangles (not just counting) them. The difference with the 
    * ForwardId implementation, is that it sends a pair of IDs: the ID included
    * in the message sent from the first phase, and the ID of the current vertex.
