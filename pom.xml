@@ -10,7 +10,7 @@
 
 	<properties>
 		<giraph.version>1.1.0-SNAPSHOT</giraph.version>
-		<hadoop.version>2.2.0</hadoop.version>
+		<hadoop.version>1.0.3</hadoop.version>
 		<giraph.scope>compile</giraph.scope>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -84,38 +84,12 @@
 		<profile>
 			<id>hadoop_preyarn</id>
 			<properties>
-				<hadoop.version>0.20.203.0</hadoop.version>
+				<hadoop.version>1.0.3</hadoop.version>
 			</properties>
 			<dependencies>
 				<dependency>
 					<groupId>org.apache.hadoop</groupId>
 					<artifactId>hadoop-core</artifactId>
-					<version>${hadoop.version}</version>
-					<scope>provided</scope>
-				</dependency>
-			</dependencies>
-		</profile>
-		<profile>
-			<id>hadoop_yarn</id>
-			<properties>
-				<hadoop.version>2.2.0</hadoop.version>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>org.apache.hadoop</groupId>
-					<artifactId>hadoop-common</artifactId>
-					<version>${hadoop.version}</version>
-					<scope>provided</scope>
-				</dependency>
-				<dependency>
-					<groupId>org.apache.hadoop</groupId>
-					<artifactId>hadoop-mapreduce-client-common</artifactId>
-					<version>${hadoop.version}</version>
-					<scope>provided</scope>
-				</dependency>
-				<dependency>
-					<groupId>org.apache.hadoop</groupId>
-					<artifactId>hadoop-mapreduce-client-core</artifactId>
 					<version>${hadoop.version}</version>
 					<scope>provided</scope>
 				</dependency>
