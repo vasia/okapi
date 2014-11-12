@@ -25,7 +25,7 @@ import org.apache.hadoop.io.WritableComparable;
  * We assume an undirected graph with symmetric edges.
  * 
  * IMPORTANT NOTE: This implementation assumes that the type of the OutEdges
- * is TreeSetOutEdges.
+ * is ml.grafos.okapi.semimetric.common.TreeSetOutEdges.
  * 
  * 
  * You can run this algorithm by executing the command:
@@ -39,7 +39,7 @@ import org.apache.hadoop.io.WritableComparable;
  *   -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat \
  *   -op $OUTPUT \
  *   -w $WORKERS \
- *   -ca giraph.outEdgesClass=org.apache.giraph.edge.TreeSetOutEdges
+ *   -ca giraph.outEdgesClass=ml.grafos.okapi.semimetric.common.TreeSetOutEdges
  *  </pre>
  * 
  */
@@ -162,7 +162,7 @@ public class SecondStepSemimetric  {
   
   /**
    * This class implements the last step:
-   * Each node checks whether it can reason about the semimetricity
+   * Each node checks whether it can reason about the semi-metricity
    * of its smallest-weight unlabeled edge.
    * If all of the weights in the received messages are larger
    * than the weight of this edge, then this edge can be safely marked as metric.
@@ -290,7 +290,7 @@ public static class DoubleBooleanPair implements WritableComparable {
   }
   
   /**
-   * Use this MasterCompute implementation to find the semimetric edges.
+   * Use this MasterCompute implementation to find the semi-metric edges.
    *
    */
   public static class MasterCompute extends DefaultMasterCompute {

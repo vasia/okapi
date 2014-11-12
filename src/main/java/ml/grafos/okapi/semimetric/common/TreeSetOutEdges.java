@@ -79,7 +79,8 @@ public class TreeSetOutEdges<I extends WritableComparable, E extends WritableCom
 	    return edgeMap.size();
 	  }
 
-	  @Override
+	  @SuppressWarnings("unchecked")
+	@Override
 	  public Iterator<Edge<I, E>> iterator() {
 	    // Returns an iterator that reuses objects.
 	    // The downcast is fine because all concrete Edge implementations are
@@ -91,7 +92,8 @@ public class TreeSetOutEdges<I extends WritableComparable, E extends WritableCom
 	  public Iterator<MutableEdge<I, E>> mutableIterator() {
 	    return new Iterator<MutableEdge<I, E>>() {
 	      /** Wrapped map iterator. */
-	      private Iterator<Map.Entry<I, E>> mapIterator =
+	      @SuppressWarnings("unchecked")
+		private Iterator<Map.Entry<I, E>> mapIterator =
 	    		  entriesSortedByValues(edgeMap).iterator();
 	      /** Representative edge object. */
 	      private MapMutableEdge<I, E> representativeEdge =
@@ -143,125 +145,4 @@ public class TreeSetOutEdges<I extends WritableComparable, E extends WritableCom
 	      sortedEntries.addAll(map.entrySet());
 	      return sortedEntries;
 	  }
-	  
-//	/** Sorted set of <trgVertexId, edgeValue> pairs */
-//	private TreeSet<Map.Entry<I,E>> edgeSet;
-//
-//	@Override
-//	public void initialize(Iterable<Edge<I, E>> edges) {
-//		EdgeIterables.initialize(this, edges);
-//	}
-//
-//	@Override
-//	public void initialize(int capacity) {
-//		initialize();
-//		
-//	}
-//
-//	@Override
-//	public void initialize() {
-//		edgeSet = Sets.newTreeSet(new EdgeValueComparator<I, E>());
-//	}
-//
-//	/** 
-//	 * Does not allow parallel edges
-//	 */
-//	@Override
-//	public void add(Edge<I, E> edge) {
-//		for (Entry<I, E> pair : edgeSet) {
-//			if (pair.getKey().equals(edge.getTargetVertexId())) {
-//				edgeSet.remove(pair);
-//				break;
-//			}
-//		}
-//		edgeSet.add(new AbstractMap.SimpleEntry<I, E>(edge.getTargetVertexId(), edge.getValue()));
-//	}
-//
-//	@Override
-//	public void remove(I targetVertexId) {
-//		for (Entry<I, E> pair : edgeSet) {
-//			if (pair.getKey().equals(targetVertexId)) {
-//				edgeSet.remove(pair);
-//				break;
-//			}
-//		}
-//	}
-//
-//	@Override
-//	public int size() {
-//		return edgeSet.size();
-//	}
-//
-//	@SuppressWarnings("unchecked")
-//	@Override
-//	public Iterator<Edge<I, E>> iterator() {
-//		return (Iterator) mutableIterator();
-//	}
-//
-//	@Override
-//	public void readFields(DataInput in) throws IOException {
-//		 int numEdges = in.readInt();
-//		 initialize(numEdges);
-//		 for (int i = 0; i < numEdges; ++i) {
-//		      I targetVertexId = getConf().createVertexId();
-//		      targetVertexId.readFields(in);
-//		      E edgeValue = getConf().createEdgeValue();
-//		      edgeValue.readFields(in);
-//		      edgeSet.add(new AbstractMap.SimpleEntry<I, E>(targetVertexId, edgeValue));
-//		 }
-//	}
-//
-//	@Override
-//	public void write(DataOutput out) throws IOException {
-//		 out.writeInt(edgeSet.size());
-//		 for(Entry<I, E> entry : edgeSet) {
-//		      entry.getKey().write(out);
-//		      entry.getValue().write(out);
-//		 }	
-//	}
-//
-//	@Override
-//	public Iterator<MutableEdge<I, E>> mutableIterator() {
-//		return new Iterator<MutableEdge<I, E>>() {
-//	      /** Wrapped set iterator. */
-//	      private Iterator<Map.Entry<I, E>> setIterator =
-//	          edgeSet.iterator();
-//	      /** Representative edge object. */
-//	      private MapMutableEdge<I, E> representativeEdge =
-//	          new MapMutableEdge<I, E>();
-//
-//	      @Override
-//	      public boolean hasNext() {
-//	        return setIterator.hasNext();
-//	      }
-//
-//	      @Override
-//	      public MutableEdge<I, E> next() {
-//	        representativeEdge.setEntry(setIterator.next());
-//	        return representativeEdge;
-//	      }
-//
-//	      @Override
-//	      public void remove() {
-//	    	  setIterator.remove();
-//	      }
-//	    };
-//	}
-
-//	@Override
-//	public E getEdgeValue(I targetVertexId) {
-//		for (Entry<I, E> pair : edgeSet) {
-//			if (pair.getKey().equals(targetVertexId)) {
-//				return pair.getValue();
-//			}
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public void setEdgeValue(I targetVertexId, E edgeValue) {
-//		this.remove(targetVertexId);
-//		edgeSet.add(new AbstractMap.SimpleEntry<I, E>(targetVertexId, edgeValue));
-//	}
-
 }

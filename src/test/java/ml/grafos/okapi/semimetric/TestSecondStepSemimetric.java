@@ -86,12 +86,6 @@ public class TestSecondStepSemimetric {
         	else if ((Integer.parseInt(tokens[0]) == 4) && (Integer.parseInt(tokens[1]) == 1)) {
         		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
         	}
-        	else if ((Integer.parseInt(tokens[0]) == 2) && (Integer.parseInt(tokens[1]) == 4)) {
-        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
-        	}
-        	else if ((Integer.parseInt(tokens[0]) == 4) && (Integer.parseInt(tokens[1]) == 2)) {
-        		Assert.assertEquals(false, Boolean.parseBoolean(s.split("[\t ]")[3]));
-        	}
         	else {
             	Assert.assertEquals(true, Boolean.parseBoolean(s.split("[\t ]")[3]));        		
         	}
