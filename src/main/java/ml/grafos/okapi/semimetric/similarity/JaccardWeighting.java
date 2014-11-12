@@ -56,7 +56,7 @@ import com.google.common.primitives.Longs;
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
  *   -ca jaccard.approximation.enabled=false
  *   
- *   Use -ca distance.conversion.enabled=true to get the Adamic-Adar distance instead.
+ *   Use -ca distance.conversion.enabled=true to get the Jaccard distance instead.
  *
  * 
  * To get the approximate Jaccard similarity, replace the SendFriendsList class
@@ -338,7 +338,7 @@ public class JaccardWeighting {
         // If the edge to the vertex with ID src does not exist, which is the
         // case in a directed graph, this call has no effect. 
         vertex.setEdgeValue(src, new DoubleWritable(
-            (double)commonFriends/(double)totalFriends));
+        		 (double)Math.min(commonFriends, totalFriends)/(double)totalFriends));
       }
       if (!conversionEnabled) {
     	  vertex.voteToHalt();
