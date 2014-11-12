@@ -34,7 +34,7 @@ public class AdamicAdarTest {
 	final double delta = 0.0001;
 
   @Test
-  public void testExact() {
+  public void testExactSimilarity() {
     String[] graph = { 
         "1 2 0.0",
         "2 1 0.0",
@@ -92,6 +92,75 @@ public class AdamicAdarTest {
     	  assertEquals(-1.791759, Double.parseDouble(output[5]), delta);
     	  assertEquals(-1.098612, Double.parseDouble(output[7]), delta);
     	  assertEquals(-1.098612, Double.parseDouble(output[9]), delta);
+      }
+
+    }
+  }
+  
+  @Test
+  public void testExactDistance() {
+    String[] graph = { 
+        "1 2 0.0",
+        "2 1 0.0",
+        "1 3 0.0",
+        "3 1 0.0",
+        "1 4 0.0",
+        "4 1 0.0",
+        "2 4 0.0",
+        "4 2 0.0",
+        "2 5 0.0",
+        "5 2 0.0",
+        "3 4 0.0",
+        "4 3 0.0",
+        "4 5 0.0",
+        "5 4 0.0"
+    };
+
+    GiraphConfiguration conf = new GiraphConfiguration();
+    conf.setComputationClass(AdamicAdarWeighting.SendFriendsListAndValue.class);
+    conf.setMasterComputeClass(AdamicAdarWeighting.MasterCompute.class);
+    conf.setEdgeInputFormatClass(LongDoubleTextEdgeInputFormat.class);
+    conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
+    conf.setOutEdgesClass(HashMapEdges.class);
+   	conf.set("distance.conversion.enabled", "true");
+    
+    Iterable<String> results;
+    try {
+      results = InternalVertexRunner.run(conf, null, graph);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Exception occurred");
+      return;
+    }
+    List<String> res = new LinkedList<String>();
+    for (String string : results) {
+      res.add(string);
+      System.out.println(string);
+      
+      String[] output = string.split("[\t ]");
+      if (Integer.parseInt(output[0]) == 1) {
+    	  assertEquals(-1.098612, Double.parseDouble(output[1]), delta);
+    	  assertEquals(2, Integer.parseInt(output[2]));
+    	  assertEquals(1.386294, Double.parseDouble(output[3]), delta);
+    	  assertEquals(1.386294, Double.parseDouble(output[5]), delta);
+    	  assertEquals(1.791759, Double.parseDouble(output[7]), delta);
+      }
+      if (Integer.parseInt(output[0]) == 3) {
+    	  assertEquals(-0.693147, Double.parseDouble(output[1]), delta);
+    	  assertEquals(1.386294, Double.parseDouble(output[3]), delta);
+    	  assertEquals(1.098612, Double.parseDouble(output[5]), delta);
+      }
+      if (Integer.parseInt(output[0]) == 4) {
+    	  assertEquals(-1.386294, Double.parseDouble(output[1]), delta);
+    	  assertEquals(1.791759, Double.parseDouble(output[3]), delta);
+    	  assertEquals(1.791759, Double.parseDouble(output[5]), delta);
+    	  assertEquals(1.098612, Double.parseDouble(output[7]), delta);
+    	  assertEquals(1.098612, Double.parseDouble(output[9]), delta);
+      }
+      if (Integer.parseInt(output[0]) == 5) {
+    	  assertEquals(-0.693147, Double.parseDouble(output[1]), delta);
+    	  assertEquals(1.386294, Double.parseDouble(output[3]), delta);
+    	  assertEquals(1.098612, Double.parseDouble(output[5]), delta);
       }
 
     }
