@@ -1,8 +1,8 @@
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric;
 
 import junit.framework.Assert;
-import ml.grafos.okapi.io.formats.EdgesWithValuesVertexOutputFormat;
-import ml.grafos.okapi.io.formats.LongDoubleBooleanEdgeInputFormat;
+import ml.grafos.okapi.semimetric.io.EdgesWithValuesVertexOutputFormat;
+import ml.grafos.okapi.semimetric.io.LongDoubleBooleanEdgeInputFormat;
 
 import org.apache.giraph.conf.GiraphConfiguration;
 import org.apache.giraph.edge.HashMapEdges;

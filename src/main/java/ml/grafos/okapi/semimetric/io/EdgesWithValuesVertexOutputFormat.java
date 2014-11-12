@@ -1,4 +1,4 @@
-package ml.grafos.okapi.io.formats;
+package ml.grafos.okapi.semimetric.io;
 
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.Vertex;

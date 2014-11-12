@@ -1,4 +1,4 @@
-package ml.grafos.okapi.graphs;
+package ml.grafos.okapi.semimetric;
 
 import java.io.DataInput;
 import java.io.DataOutput;
