@@ -1,5 +1,7 @@
 package ml.grafos.okapi.semimetric;
 
+import java.util.ArrayList;
+
 import junit.framework.Assert;
 import ml.grafos.okapi.semimetric.io.EdgesWithValuesVertexOutputFormat;
 import ml.grafos.okapi.semimetric.io.LongDoubleBooleanEdgeInputFormat;
@@ -12,7 +14,7 @@ import org.junit.Test;
 public class TestScalableSemimetric {
 
 	@Test
-	public void testAllMetric() throws Exception {
+	public void testTwoSemimetric() throws Exception {
         String[] graph = new String[] {
         		"1	2	1.0",
         		"2	1	1.0",
@@ -54,5 +56,45 @@ public class TestScalableSemimetric {
         	System.out.println(s);
         }
         System.out.println();
+    }
+	
+	@Test
+	public void testAllMetric() throws Exception {
+        String[] graph = new String[] {
+        		"1	2	1.0",
+        		"2	1	1.0",
+        		"2	3	1.0",
+        		"3	2	1.0",
+        		"3	1	1.0",
+        		"1	3	1.0",
+        		"3	6	1.0",
+        		"6	3	1.0",
+        		"5	6	1.0",
+        		"6	5	1.0",
+        		"4	5	1.0",
+        		"5	4	1.0",
+        		"3	5	1.0",
+        		"5	3	1.0",
+        		"2	4	1.0",
+        		"4	2	1.0"
+                 };
+	      	
+        // run to check results correctness
+        GiraphConfiguration conf = new GiraphConfiguration();
+        conf.setMasterComputeClass(ScalableSemimetric.SemimetricMasterCompute.class);
+        conf.setComputationClass(ScalableSemimetric.PropagateId.class);
+        conf.setEdgeInputFormatClass(LongDoubleBooleanEdgeInputFormat.class);
+        conf.setVertexOutputFormatClass(EdgesWithValuesVertexOutputFormat.class);
+        conf.setOutEdgesClass(HashMapEdges.class);
+        conf.setInt("semimetric.subsupersteps", 3);
+
+        // run internally
+        Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
+        System.out.println("Testing all metric...");
+        ArrayList<String> resultsList = new ArrayList<String>();
+        for (String s: results) {
+        	resultsList.add(s);
+        }
+        Assert.assertEquals(16, resultsList.size());
     }
 }
