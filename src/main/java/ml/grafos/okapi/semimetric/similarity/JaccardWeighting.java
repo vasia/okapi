@@ -369,7 +369,7 @@ public class JaccardWeighting {
 	 */
 	private static DoubleWritable covertToDistance(DoubleWritable value) {
 		if (Math.abs(value.get()) > 0) {
-			value.set((double)((1.0 / value.get()) - 1.0));
+			value.set((1.0 / value.get()) - 1.0);
 		}
 		else {
 			value.set(Double.MAX_VALUE);
