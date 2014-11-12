@@ -53,7 +53,7 @@ import com.google.common.primitives.Longs;
  *   -w $WORKERS \
  *   -ca giraph.oneToAllMsgSending=true \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges \
- *   -ca jaccard.approximation.enabled=false
+ *   -ca adamicadar.approximation.enabled=false
  * </pre>
  * 
  * Use -ca distance.conversion.enabled=true to get the Adamic-Adar distance instead.
@@ -72,19 +72,19 @@ public class AdamicAdarWeighting {
   public static final boolean ADAMICADAR_APPROXIMATION_DEFAULT = false;
 
   /** Size of bloom filter in bits */
-  public static final String BLOOM_FILTER_BITS = "jaccard.bloom.filter.bits";
+  public static final String BLOOM_FILTER_BITS = "adamicadar.bloom.filter.bits";
   
   /** Default size of bloom filters */
   public static final int BLOOM_FILTER_BITS_DEFAULT = 16;
   
   /** Number of functions to use in bloom filter */
-  public static final String BLOOM_FILTER_FUNCTIONS = "jaccard.bloom.filter.functions";
+  public static final String BLOOM_FILTER_FUNCTIONS = "adamicadar.bloom.filter.functions";
   
   /** Default number of functions to use in bloom filter */
   public static final int BLOOM_FILTER_FUNCTIONS_DEFAULT = 1;
   
   /** Type of hash function to use in bloom filter */
-  public static final String BLOOM_FILTER_HASH_TYPE = "jaccard.bloom.filter.has.type";
+  public static final String BLOOM_FILTER_HASH_TYPE = "adamicadar.bloom.filter.has.type";
 
   /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
