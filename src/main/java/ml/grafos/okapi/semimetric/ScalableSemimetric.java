@@ -14,17 +14,18 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 
 /**
- * This is a set of computation classes used to find semimetric edges in the
+ * This is a set of computation classes used to find semi-metric edges in the
  * triangles of a graph. If vertices A, B, C form a triangle, then edge AB is
- * semimetric if D(A,B) > D(A,C)+D(C,B).
+ * semi-metric if D(A,B) > D(A,C)+D(C,B).
  * 
  * 
- * This implementation divides the algorithm into several sub-supersteps.
- * In each sub-superstep, some of the vertices of the graph execute the 
- * algorithm, while the rest are idle.
+ * This implementation divides the algorithm into several megasteps
+ * which contains the three supersteps of the main computation.
+ * In each megastep, some of the vertices of the graph execute the 
+ * algorithm, while the rest are idle (but still active).
  * The algorithm finishes, when all vertices have executed the computation.
- * In the case of semimetric edge removal, this model is possible, because
- * Message are neither aggregated nor combined. 
+ * In the case of semi-metric edge removal, this model is possible, because
+ * messages are neither aggregated nor combined. 
  * 
  * This implementation assumes numeric vertex ids.
  *  
@@ -32,7 +33,7 @@ import org.apache.hadoop.io.WritableComparable;
  * 
  * You can run this algorithm by executing the command:
  * 
- * <pre>
+ * 
  * hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner \
  *   ml.grafos.okapi.graphs.ScalableSemimetric\$PropagateId  \
  *   -mc  ml.grafos.okapi.graphs.ScalableSemimetric\$SemimetricMasterCompute  \
@@ -42,17 +43,19 @@ import org.apache.hadoop.io.WritableComparable;
  *   -op $OUTPUT \
  *   -w $WORKERS \
  *   -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges
- *  </pre>
+ *  
+ *  You can set the number of megasteps by setting the configuration option
+ *  semimetric.megasteps.
  * 
  * 
  */
 public class ScalableSemimetric  {
   
-  /** Indicates in how many sub-supersteps to divide the computation. */
-  public static final String NUMBER_OF_SUBSUPERSTEPS = "semimetric.subsupersteps";
+  /** Indicates in how many megasteps to divide the computation. */
+  public static final String NUMBER_OF_MEGASTEPS = "semimetric.megasteps";
   
-  /** Default value of sub-supersteps */
-  public static final int NUMBER_OF_SUBSUPERSTEPS_DEFAULT = 2;
+  /** Default value of megasteps */
+  public static final int NUMBER_OF_MEGASTEPS_DEFAULT = 2;
 
   /**
    * This class implements the first stage, which propagates the ID of a vertex
@@ -62,12 +65,12 @@ public class ScalableSemimetric  {
   public static class PropagateId extends AbstractComputation<LongWritable,
   NullWritable, DoubleBooleanPair, LongWritable, LongWritable> {
 
-	  int subSupersteps;
+	  int megasteps;
 	  
 	  @Override
 	  public void preSuperstep() {
-		  subSupersteps = getContext().getConfiguration()
-				  .getInt(NUMBER_OF_SUBSUPERSTEPS, NUMBER_OF_SUBSUPERSTEPS_DEFAULT);
+		  megasteps = getContext().getConfiguration()
+				  .getInt(NUMBER_OF_MEGASTEPS, NUMBER_OF_MEGASTEPS_DEFAULT);
 	  }
 	  
     @Override
@@ -77,7 +80,7 @@ public class ScalableSemimetric  {
     	final long vertexId = vertex.getId().get();
     	final long superstep = getSuperstep();
     	
-    	if (((vertexId % subSupersteps) * 3) == superstep) {
+    	if (((vertexId % megasteps) * 3) == superstep) {
     		for (Edge<LongWritable, DoubleBooleanPair> edge: vertex.getEdges()) {
     	        if (edge.getTargetVertexId().compareTo(vertex.getId()) > 0) {
     	          sendMessage(edge.getTargetVertexId(), vertex.getId());
@@ -129,10 +132,11 @@ public class ScalableSemimetric  {
 
   /**
    * This class implements the third phase of the algorithm that detects whether
-   * a triangle has closed and whether there is a semimetric edge in this
+   * a triangle has closed and whether there is a semi-metric edge in this
    * triangle.
    */
-  public static class FindSemimetricEdges extends AbstractComputation<LongWritable, 
+  @SuppressWarnings("rawtypes")
+public static class FindSemimetricEdges extends AbstractComputation<LongWritable, 
     Writable, DoubleBooleanPair, SimpleEdge, WritableComparable> {
 	  
     @Override
@@ -177,15 +181,12 @@ public class ScalableSemimetric  {
 	          }
 	        }
     	}
-      
-      // NOTE: In this phase, vertices do not halt. We need the next superstep
-      // to run so that the edge removal requests execute.
-    }
+     }
   }
 
   /**
    * 
-   * Request remove all edges that have been labeled as semimetric.  
+   * Request remove all edges that have been labeled as semi-metric.  
    * 
    *
    */
@@ -264,6 +265,12 @@ public class ScalableSemimetric  {
     }
   }
   
+  /**
+   * Represents the edge value type.
+   * It contains the edge weight and a boolean
+   * label that indicates whether the edge is semi-metric.
+   *
+   */
   @SuppressWarnings("rawtypes")
   public static class DoubleBooleanPair implements WritableComparable {
       double weight;
@@ -317,7 +324,7 @@ public class ScalableSemimetric  {
     }
   
   /**
-   * Use this MasterCompute implementation to find the semimetric edges.
+   * Use this MasterCompute implementation to find the semi-metric edges.
    *
    */
   public static class SemimetricMasterCompute extends DefaultMasterCompute {
@@ -326,10 +333,10 @@ public class ScalableSemimetric  {
     public void compute() {
 
       int subSupersteps = getContext().getConfiguration()
-			  .getInt(NUMBER_OF_SUBSUPERSTEPS, NUMBER_OF_SUBSUPERSTEPS_DEFAULT);
+			  .getInt(NUMBER_OF_MEGASTEPS, NUMBER_OF_MEGASTEPS_DEFAULT);
 
       long superstep = getSuperstep(); 
-      if (superstep < ((subSupersteps*3) + 1)) {
+      if (superstep < subSupersteps*3) {
 	      if ((superstep%3)==0) {
 	        setComputation(PropagateId.class);
 	        setIncomingMessage(LongWritable.class);
@@ -343,14 +350,14 @@ public class ScalableSemimetric  {
 	        setIncomingMessage(SimpleEdge.class);
 	        setOutgoingMessage(LongWritable.class);
 	      }  
-      } else if (superstep == ((subSupersteps*3) + 1)) {
-  	         // remove the semimetric edges
+      } else if (superstep == subSupersteps*3) {
+  	         // remove the semi-metric edges
   	          setComputation(Finalize.class);
   	          setIncomingMessage(LongWritable.class);
   	          setOutgoingMessage(LongWritable.class); 
         }
-      else if (superstep == ((subSupersteps*3) + 2)) {
-	         // remove the semimetric edges
+      else if (superstep == (subSupersteps*3) + 1) {
+	         // remove the semi-metric edges
 	          setComputation(RemoveEdges.class);
 	          setIncomingMessage(LongWritable.class);
 	          setOutgoingMessage(LongWritable.class); 
