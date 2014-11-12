@@ -47,7 +47,7 @@ import com.google.common.primitives.Longs;
  * hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner \
  *   ml.grafos.okapi.graphs.Similarity\$SendFriendsList  \
  *   -mc  ml.grafos.okapi.graphs.Similarity\$MasterCompute  \
- *   -eif ml.grafos.okapi.io.formats.LongDoubleTextEdgeInputFormat  \
+ *   -eif ml.grafos.okapi.io.formats.LongDoubleZerosTextEdgeInputFormat  \
  *   -eip $INPUT_EDGES \
  *   -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat \
  *   -op $OUTPUT \
