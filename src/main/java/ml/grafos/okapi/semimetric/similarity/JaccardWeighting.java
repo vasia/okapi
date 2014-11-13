@@ -89,7 +89,7 @@ public class JaccardWeighting {
   public static final int BLOOM_FILTER_FUNCTIONS_DEFAULT = 1;
   
   /** Type of hash function to use in bloom filter */
-  public static final String BLOOM_FILTER_HASH_TYPE = "jaccard.bloom.filter.has.type";
+  public static final String BLOOM_FILTER_HASH_TYPE = "jaccard.bloom.filter.hash.type";
 
   /** Default type of hash function in bloom filter */
   public static final int BLOOM_FILTER_HASH_TYPE_DEFAULT = Hash.MURMUR_HASH;
