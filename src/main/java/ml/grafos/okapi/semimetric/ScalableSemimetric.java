@@ -20,7 +20,7 @@ import org.apache.hadoop.io.WritableComparable;
  * 
  * 
  * This implementation divides the algorithm into several megasteps
- * which contains the three supersteps of the main computation.
+ * which contain the three supersteps of the main computation.
  * In each megastep, some of the vertices of the graph execute the 
  * algorithm, while the rest are idle (but still active).
  * The algorithm finishes, when all vertices have executed the computation.
