@@ -22,11 +22,12 @@ where the IDs are of type Long and similarity is Double.
 - jaccard.approximation.enabled: When set to `true`, the bloom filter implementation will be used and the program will compute the approximate Jaccard index. The deafult value is `false`.
 - jaccard.bloom.filter.bits: Size of the bloom filter, in bits. The default value if 16.
 - jaccard.bloom.filter.functions: The number of hash functions to use for the bloom filter. The default value is 1.
-- jaccard.bloom.filter.hash.type: The type of the hash functions to use for the bloom filter. The default value is `Hash.MURMURHASH`.
+- jaccard.bloom.filter.hash.type: The type of the hash functions to use for the bloom filter. The default value is `Hash.MURMUR_HASH`.
 - distance.conversion.enabled: When set to `true`, the prograpm will compute the Jaccard _distance_. The deafult value if `false`.
 
 ## Running
-`hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.Similarity\$SendFriendsBloomFilter -mc ml.grafos.okapi.graphs.Similarity\$MasterCompute -eif ml.grafos.okapi.io.formats.LongDoubleZerosTextEdgeInputFormat -eip $EDGES_INPUT -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $EDGE_OUTPUT -ca giraph.oneToAllMsgSending=true -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges`
+- For the exact Jaccard computation: `hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.JaccardWeighting\$SendFriendsList -mc ml.grafos.okapi.graphs.JaccardWeighting\$MasterCompute -eif ml.grafos.okapi.io.formats.LongDoubleZerosTextEdgeInputFormat -eip $EDGES_INPUT -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $EDGE_OUTPUT -ca giraph.oneToAllMsgSending=true -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges`
+- For the approximate Jaccard computation: `hadoop jar $OKAPI_JAR org.apache.giraph.GiraphRunner ml.grafos.okapi.graphs.JaccardWeighting\$SendFriendsBloomFilter -mc ml.grafos.okapi.graphs.JaccardWeighting\$MasterCompute -eif ml.grafos.okapi.io.formats.LongDoubleZerosTextEdgeInputFormat -eip $EDGES_INPUT -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $EDGE_OUTPUT -ca giraph.oneToAllMsgSending=true -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges -ca jaccard.approximation.enabled=true`
 
 ## References
 - http://en.wikipedia.org/wiki/Jaccard_index
