@@ -11,10 +11,10 @@ import org.apache.hadoop.io.Writable;
  * An edge with long ids and a double weight.
  */
 public class UnlabeledEdge implements Writable {
-	long src;
-	long trg;
-	double w;
-
+	private long src;
+	private long trg;
+	private double w;
+	
 	public UnlabeledEdge() {}
 	
 	public UnlabeledEdge(long source, long target, double weight) {
@@ -23,21 +23,25 @@ public class UnlabeledEdge implements Writable {
 	    this.w = weight;
 	}
 
-  public long getSource() { return src; }
-  public long getTarget() { return trg; }
-  public double getWeight() { return w; }
-
-  @Override
-  public void readFields(DataInput input) throws IOException {
-  	src = input.readLong(); 
-  	trg = input.readLong();
-  	w =  input.readDouble();
-  }
-
-  @Override
-  public void write(DataOutput output) throws IOException {
-  	output.writeLong(src);
-  	output.writeLong(trg);
-  	output.writeDouble(w);
-  }
+	  public long getSource() { return src; }
+	  public long getTarget() { return trg; }
+	  public double getWeight() { return w; }
+	
+	  @Override
+	  public void readFields(DataInput input) throws IOException {
+	  	src = input.readLong(); 
+	  	trg = input.readLong();
+	  	w =  input.readDouble();
+	  }
+	
+	  @Override
+	  public void write(DataOutput output) throws IOException {
+	  	output.writeLong(src);
+	  	output.writeLong(trg);
+	  	output.writeDouble(w);
+	  }
+	
+		public UnlabeledEdge oppositeDirectionEdge() {
+			return new UnlabeledEdge(trg, src, w);
+		}
 }
