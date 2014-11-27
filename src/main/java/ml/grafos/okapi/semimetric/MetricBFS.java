@@ -39,6 +39,8 @@ import org.apache.hadoop.io.NullWritable;
  * u acts as the source vertex of a modified SSSP, which only
  * explores paths that have weight lower than the weight of (u, v).
  * 
+ * IMPORTANT NOTE: This implementation assumes that the type of the OutEdges
+ * is ml.grafos.okapi.semimetric.common.TreeSetOutEdges.
  */
 public class MetricBFS {
 	
@@ -64,11 +66,11 @@ public class MetricBFS {
 	 * to the unlabeled-edge aggregator.
 	 */
 	public static class PutUnlabeledEdgesInAggregator extends BasicComputation<LongWritable, 
-		NullWritable, DoubleBooleanPair, DoubleWritable> {
+		DoubleWritable, DoubleBooleanPair, DoubleWritable> {
 
 		@Override
 		public void compute(
-				Vertex<LongWritable, NullWritable, DoubleBooleanPair> vertex,
+				Vertex<LongWritable, DoubleWritable, DoubleBooleanPair> vertex,
 				Iterable<DoubleWritable> messages) throws IOException {
 			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
 				DoubleBooleanPair edgeValue = e.getValue();
