@@ -176,6 +176,8 @@ public class MetricBFS {
 			double edgeWeight = currentEdge.getWeight();
 			LongWritable sourceVertex = new LongWritable(sourceID);
 			LongWritable targetVertex = new LongWritable(targetID);
+			DoubleBooleanPair newEdgeValue = new DoubleBooleanPair(edgeWeight, true);
+			System.out.println("[remove] checking edge (" + sourceID + ", " + targetID + ")");
 
 			if (vertex.getId().get() == targetID) {
 				if (vertex.getValue().get() < edgeWeight) {
@@ -185,7 +187,9 @@ public class MetricBFS {
 				else {
 					// the edge was found to be metric: add it back
 					addEdgeRequest(sourceVertex, 
-							EdgeFactory.create(targetVertex, new DoubleBooleanPair(edgeWeight, true)));
+							EdgeFactory.create(targetVertex, newEdgeValue));
+					// and also label the opposite direction edge as metric
+					vertex.setEdgeValue(sourceVertex, newEdgeValue);
 				}
 			}
 		  }
@@ -251,11 +255,12 @@ public class MetricBFS {
 	      else if (superstep == 1) {
 				// copy the set of unlabeled edges locally
 				unlabeledEdges = getAggregatedValue(UNLABELED_EDGES_AGGREGATOR);
+				System.out.println("### [Master] unlabeled edges count: " + unlabeledEdges.size());
 				
 				if (!(unlabeledEdges.isEmpty())) {
 					// set the value of the current edge aggregator
 					setAggregatedValue(CURRENT_EDGE_AGGREGATOR, unlabeledEdges.iterator().next());
-					
+
 					// BFS has converged: set the BFS superstep aggregator
 		    		setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(1));
 		    		  
@@ -282,6 +287,7 @@ public class MetricBFS {
 	    	  else {
 		    	  // check convergenceAggregator
 		    	  if (((BooleanWritable)getAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR)).get()) {
+		    		  System.out.println("[Master] Superstep: " + getSuperstep() + ", BFS has converged..");
 
 		    		  // BFS has converged: set the BFS superstep aggregator
 		    		  setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(superstep+2));
@@ -295,13 +301,19 @@ public class MetricBFS {
 		    		  
 		    		  // set the current edge aggregator
 		    		  if (!(unlabeledEdges.isEmpty())) {
+		    			  System.out.println("[Master] Superstep: " + getSuperstep() 
+		    					  + ". Edge list not empty... Setting the current edge aggregator");
 							// proceed to the next edge in the set
 							setAggregatedValue(CURRENT_EDGE_AGGREGATOR, unlabeledEdges.iterator().next());
 		    		  }
 		    		  else {
+		    			  System.out.println("[Master] Superstep: " + getSuperstep() + ". Edge list empty."
+		    			  		+ " Setting current edge to -1.");
 		    			  setAggregatedValue(CURRENT_EDGE_AGGREGATOR, new UnlabeledEdge(-1, -1, -1d));
 		    		  }
 	
+		    		  System.out.println("[Master] Superstep: " + getSuperstep() + ". Setting convergence flag"
+		    		  		+ " to false.");
 		    		  // set the convergence aggregator
 		    		  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(false));
 
@@ -309,8 +321,10 @@ public class MetricBFS {
 		    		  setComputation(RemoveSemimetricEdge.class);
 		    	  }
 		    	  else {
+		    		  System.out.println("[Master] Superstep: " + getSuperstep() + ", BFS NOT converged..");
 		    		  long edgeSrcID = ((UnlabeledEdge)(getAggregatedValue(CURRENT_EDGE_AGGREGATOR))).getSource();
 		    		  if (edgeSrcID == -1) {
+		    			  System.out.println("[Master] Superstep: " + getSuperstep() + ". Edge src=-1...");
 		    			  setComputation(Finalize.class);
 		    			  // set the last superstep
 		    			  if (lastsuperstep == -1) {
@@ -319,6 +333,7 @@ public class MetricBFS {
 		    		  }
 		    		  else {
 			    		  // set the convergence aggregator
+		    			  System.out.println("[Master] Superstep: " + getSuperstep() + ". Setting convergence to true.");
 			    		  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(true));
 			    		  // run the customBFS
 			    		  setComputation(CustomBFS.class);
