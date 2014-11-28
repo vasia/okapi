@@ -22,7 +22,7 @@ import java.util.Set;
 import ml.grafos.okapi.semimetric.SecondStepSemimetric.DoubleBooleanPair;
 
 import org.apache.giraph.aggregators.BooleanAndAggregator;
-import org.apache.giraph.aggregators.LongOverwriteAggregator;
+import org.apache.giraph.aggregators.LongSumAggregator;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.edge.EdgeFactory;
 import org.apache.giraph.graph.BasicComputation;
@@ -76,8 +76,6 @@ public class MetricBFS {
 			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
 				DoubleBooleanPair edgeValue = e.getValue();
 				if (!(edgeValue.isMetric())) {
-					System.out.println("Vertex " + vertex.getId() + ": Putting edge " + e.getTargetVertexId()
-							+ " in unlabeled edges set...");
 					UnlabeledEdge edgeToAdd = new UnlabeledEdge(vertex.getId().get(), e.getTargetVertexId().get(),
 							e.getValue().getWeight());
 					UnlabeledEdgeHashSetWritable aggrSet = new UnlabeledEdgeHashSetWritable();
@@ -115,14 +113,15 @@ public class MetricBFS {
 	      Iterable<DoubleWritable> messages) {
 
 		  long bfsStartingSuperstep = ((LongWritable)getAggregatedValue(BFS_START_AGGREGATOR)).get();
+
 		  if (getSuperstep() == bfsStartingSuperstep) {
 	    	// remove the unlabeled edge from the graph
-	    	if((vertex.getId().compareTo(sourceId) == 0)) {
+	    	if(vertex.getId().get() == sourceId) {
 	    		vertex.removeEdges(new LongWritable(targetID));
+	    		aggregate(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(false));
 	    	}
 	    	vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
 	    }
-	    
 	    else {
 		    double minDist = (vertex.getId().get() == sourceId) ? 0d : Double.MAX_VALUE;
 		    for (DoubleWritable message : messages) {
@@ -178,7 +177,7 @@ public class MetricBFS {
 			LongWritable sourceVertex = new LongWritable(sourceID);
 			LongWritable targetVertex = new LongWritable(targetID);
 
-			if (vertex.getId().equals(targetID)) {
+			if (vertex.getId().get() == targetID) {
 				if (vertex.getValue().get() < edgeWeight) {
 					// the edge is semi-metric: remove the opposite-direction edge
 					removeEdgesRequest(targetVertex, sourceVertex);
@@ -192,6 +191,21 @@ public class MetricBFS {
 		  }
 	  }
 	
+	/** 
+	 * Last essential superstep for the edge add/remove requests to be executed
+	 */
+	public static class Finalize extends BasicComputation<LongWritable, 
+		DoubleWritable, DoubleBooleanPair, DoubleWritable> {
+
+		@Override
+		public void compute(
+				Vertex<LongWritable, DoubleWritable, DoubleBooleanPair> vertex,
+				Iterable<DoubleWritable> messages) throws IOException {
+				vertex.voteToHalt();
+		}
+		
+	}
+
 	 /**
 	   * 
 	   * MastercCompute coordinates the execution.
@@ -201,6 +215,8 @@ public class MetricBFS {
 	   *
 	   */
 	  public static class MasterCompute extends DefaultMasterCompute {
+		  
+		  private long lastsuperstep = -1;
 	    
 		  // use a HashSet for easy removal of opposite-direction edges
 		private Set<UnlabeledEdge> unlabeledEdges = new HashSet<UnlabeledEdge>();  
@@ -214,7 +230,7 @@ public class MetricBFS {
 			// register the convergence aggregator
 			registerPersistentAggregator(CHECK_CONVERGENCE_AGGREGATOR, BooleanAndAggregator.class);
 			// register the custom bfs start aggregator
-			registerPersistentAggregator(BFS_START_AGGREGATOR, LongOverwriteAggregator.class);
+			registerPersistentAggregator(BFS_START_AGGREGATOR, LongSumAggregator.class);
 			// register unlabeled edges aggregator
 	    	registerAggregator(UNLABELED_EDGES_AGGREGATOR, UnlabeledEdgesAggregator.class);
 		}
@@ -223,64 +239,92 @@ public class MetricBFS {
 	    public void compute() {
 
 	      long superstep = getSuperstep();
+
+	      // check for program termination
+	      if ((superstep == lastsuperstep) && (superstep > 1)) {
+	    	  haltComputation();
+	      }
+	      
 	      if (superstep == 0) {
-	    	  System.out.println("Superstep: 0");
-	    	  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(false));
 	    	  setComputation(PutUnlabeledEdgesInAggregator.class);
 	      }
 	      else if (superstep == 1) {
 				// copy the set of unlabeled edges locally
 				unlabeledEdges = getAggregatedValue(UNLABELED_EDGES_AGGREGATOR);
-				// set the value of the current edge aggregator
+				
 				if (!(unlabeledEdges.isEmpty())) {
-					System.out.println("Non-empty set of unlabeled edges... Setting current edge aggregator!");
+					// set the value of the current edge aggregator
 					setAggregatedValue(CURRENT_EDGE_AGGREGATOR, unlabeledEdges.iterator().next());
+					
+					// BFS has converged: set the BFS superstep aggregator
+		    		setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(1));
+		    		  
 					//start the customBFS
 					setComputation(CustomBFS.class);
 				}
 				else {
 					// no more edges to consider --> halt computation
-					System.out.println("No more unlabeled edges... Exiting!");
-					haltComputation();
+					// set the last superstep (if not already set)
+					if (lastsuperstep == -1) {
+						lastsuperstep = getSuperstep()+2;
+					}
+					setComputation(Finalize.class);
 				}
 	      }
 	      else if(superstep > 1) {
 	    	  if (unlabeledEdges.isEmpty()) {
-	    		  haltComputation();
-	    	  }
-	    	  // check convergenceAggregator
-	    	  if (((BooleanWritable)getAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR)).get()) {
-	    		  System.out.println("BFS converged: Removing Semi-metric edge, if found...");
-	    		  
-	    		  // set the bfs superstep aggregator
-	    		  setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(superstep+1));
-
-	    		  
-	    		  // remove the previous edge and its opposite-direction edge from the list
-	    		  UnlabeledEdge edgeToRemove  = getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
-	    		  // set the edge to remove aggregator
-	    		  setAggregatedValue(EDGE_TO_REMOVE_AGGREGATOR, edgeToRemove);
-	    		  unlabeledEdges.remove(edgeToRemove);
-	    		  unlabeledEdges.remove(edgeToRemove.oppositeDirectionEdge());
-	    		  
-	    		  // set the next edge to check aggregator
-	    		  if (!(unlabeledEdges.isEmpty())) {
-						// proceed to the next edge in the set
-						if (!(unlabeledEdges.isEmpty())) {
-							setAggregatedValue(CURRENT_EDGE_AGGREGATOR, unlabeledEdges.iterator().next());
-						}
+	    		// set the last superstep (if not already set)
+	    		  if (lastsuperstep == -1) {
+						lastsuperstep = getSuperstep()+2;
 	    		  }
-	    		  
-	    		  // set the convergence aggregator
-	    		  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(false));
-	    		  
-	    		  // the custom BFS has converged --> remove the edge if semi-metric
-	    		  setComputation(RemoveSemimetricEdge.class);
+		    		setComputation(Finalize.class);
 	    	  }
 	    	  else {
-	    		  // run the customBFS
-	    		  setComputation(CustomBFS.class);
-	    	  }
+		    	  // check convergenceAggregator
+		    	  if (((BooleanWritable)getAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR)).get()) {
+
+		    		  // BFS has converged: set the BFS superstep aggregator
+		    		  setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(superstep+2));
+	
+		    		  // remove the previous edge and its opposite-direction edge from the list
+		    		  UnlabeledEdge edgeToRemove  = getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
+		    		  // set the edge to remove aggregator
+		    		  setAggregatedValue(EDGE_TO_REMOVE_AGGREGATOR, edgeToRemove);
+		    		  unlabeledEdges.remove(edgeToRemove);
+		    		  unlabeledEdges.remove(edgeToRemove.oppositeDirectionEdge());
+		    		  
+		    		  // set the current edge aggregator
+		    		  if (!(unlabeledEdges.isEmpty())) {
+							// proceed to the next edge in the set
+							setAggregatedValue(CURRENT_EDGE_AGGREGATOR, unlabeledEdges.iterator().next());
+		    		  }
+		    		  else {
+		    			  setAggregatedValue(CURRENT_EDGE_AGGREGATOR, new UnlabeledEdge(-1, -1, -1d));
+		    		  }
+	
+		    		  // set the convergence aggregator
+		    		  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(false));
+
+		    		  // the custom BFS has converged --> remove the edge if semi-metric
+		    		  setComputation(RemoveSemimetricEdge.class);
+		    	  }
+		    	  else {
+		    		  long edgeSrcID = ((UnlabeledEdge)(getAggregatedValue(CURRENT_EDGE_AGGREGATOR))).getSource();
+		    		  if (edgeSrcID == -1) {
+		    			  setComputation(Finalize.class);
+		    			  // set the last superstep
+		    			  if (lastsuperstep == -1) {
+								lastsuperstep = getSuperstep()+2;
+		    			  }
+		    		  }
+		    		  else {
+			    		  // set the convergence aggregator
+			    		  setAggregatedValue(CHECK_CONVERGENCE_AGGREGATOR, new BooleanWritable(true));
+			    		  // run the customBFS
+			    		  setComputation(CustomBFS.class);
+		    		  }
+		    	  }
+		      }
 	      }
 	    }
 	  }

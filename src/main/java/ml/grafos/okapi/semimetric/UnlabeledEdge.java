@@ -44,4 +44,10 @@ public class UnlabeledEdge implements Writable {
 		public UnlabeledEdge oppositeDirectionEdge() {
 			return new UnlabeledEdge(trg, src, w);
 		}
+		
+		public void set(UnlabeledEdge other) {
+			this.src = other.getSource();
+			this.trg = other.getTarget();
+			this.w = other.getWeight();
+		}
 }
