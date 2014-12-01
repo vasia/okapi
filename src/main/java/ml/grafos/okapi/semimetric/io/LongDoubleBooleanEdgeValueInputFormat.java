@@ -18,7 +18,7 @@ package ml.grafos.okapi.semimetric.io;
 import java.io.IOException;
 import java.util.regex.Pattern;
 
-import ml.grafos.okapi.semimetric.ScalableSemimetric.DoubleBooleanPair;
+import ml.grafos.okapi.semimetric.SecondStepSemimetric.DoubleBooleanPair;
 
 import org.apache.giraph.io.EdgeReader;
 import org.apache.giraph.io.formats.TextEdgeInputFormat;
