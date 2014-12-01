@@ -16,8 +16,6 @@
 package ml.grafos.okapi.semimetric;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 import ml.grafos.okapi.semimetric.SecondStepSemimetric.DoubleBooleanPair;
 
@@ -73,15 +71,20 @@ public class MetricBFS {
 		public void compute(
 				Vertex<LongWritable, DoubleWritable, DoubleBooleanPair> vertex,
 				Iterable<DoubleWritable> messages) throws IOException {
+			// list of unlabeled edges
+			ArrayListOfUnlabeledEdgeWritable aggrList = new ArrayListOfUnlabeledEdgeWritable();
+			
 			for (Edge<LongWritable, DoubleBooleanPair> e : vertex.getEdges()) {
 				DoubleBooleanPair edgeValue = e.getValue();
 				if (!(edgeValue.isMetric())) {
 					UnlabeledEdge edgeToAdd = new UnlabeledEdge(vertex.getId().get(), e.getTargetVertexId().get(),
 							e.getValue().getWeight());
-					UnlabeledEdgeHashSetWritable aggrSet = new UnlabeledEdgeHashSetWritable();
-					aggrSet.add(edgeToAdd);
-					aggregate(UNLABELED_EDGES_AGGREGATOR, aggrSet);
+					aggrList.add(edgeToAdd);
 				}
+			}
+			// copy unlabeled edges to global aggregator
+			if (!(aggrList.isEmpty())) {
+				aggregate(UNLABELED_EDGES_AGGREGATOR, aggrList);
 			}
 		}
 	}
@@ -102,7 +105,7 @@ public class MetricBFS {
 	  private double edgeWeight; 
 	  
 	  public void preSuperstep() {
-		  UnlabeledEdge edgeToCheck = getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
+		  UnlabeledEdge edgeToCheck = (UnlabeledEdge)getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
 		  sourceId = edgeToCheck.getSource();
 		  targetID = edgeToCheck.getTarget();
 		  edgeWeight = edgeToCheck.getWeight();
@@ -222,8 +225,8 @@ public class MetricBFS {
 		  
 		  private long lastsuperstep = -1;
 	    
-		  // use a HashSet for easy removal of opposite-direction edges
-		private Set<UnlabeledEdge> unlabeledEdges = new HashSet<UnlabeledEdge>();  
+		// use a HashSet for easy removal of opposite-direction edges
+		private ArrayListOfUnlabeledEdgeWritable unlabeledEdges = new ArrayListOfUnlabeledEdgeWritable();
 		  
 		@Override
 	    public final void initialize() throws InstantiationException, IllegalAccessException {			
@@ -236,7 +239,7 @@ public class MetricBFS {
 			// register the custom bfs start aggregator
 			registerPersistentAggregator(BFS_START_AGGREGATOR, LongSumAggregator.class);
 			// register unlabeled edges aggregator
-	    	registerAggregator(UNLABELED_EDGES_AGGREGATOR, UnlabeledEdgesAggregator.class);
+			registerAggregator(UNLABELED_EDGES_AGGREGATOR, ArrayListOfUnlabeledEdgeWritableAggregator.class);
 		}
 
 	    @Override
@@ -254,7 +257,7 @@ public class MetricBFS {
 	      }
 	      else if (superstep == 1) {
 				// copy the set of unlabeled edges locally
-				unlabeledEdges = getAggregatedValue(UNLABELED_EDGES_AGGREGATOR);
+				unlabeledEdges = (ArrayListOfUnlabeledEdgeWritable)getAggregatedValue(UNLABELED_EDGES_AGGREGATOR);
 				System.out.println("### [Master] unlabeled edges count: " + unlabeledEdges.size());
 				
 				if (!(unlabeledEdges.isEmpty())) {
@@ -293,11 +296,15 @@ public class MetricBFS {
 		    		  setAggregatedValue(BFS_START_AGGREGATOR, new LongWritable(superstep+2));
 	
 		    		  // remove the previous edge and its opposite-direction edge from the list
-		    		  UnlabeledEdge edgeToRemove  = getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
+		    		  UnlabeledEdge edgeToRemove  = (UnlabeledEdge)getAggregatedValue(CURRENT_EDGE_AGGREGATOR);
 		    		  // set the edge to remove aggregator
 		    		  setAggregatedValue(EDGE_TO_REMOVE_AGGREGATOR, edgeToRemove);
+
+		    		  System.out.println("[MASTER] removing edges... List size before: " + unlabeledEdges.size());
 		    		  unlabeledEdges.remove(edgeToRemove);
 		    		  unlabeledEdges.remove(edgeToRemove.oppositeDirectionEdge());
+
+		    		  System.out.println("[MASTER] removing edges... List size after: " + unlabeledEdges.size());
 		    		  
 		    		  // set the current edge aggregator
 		    		  if (!(unlabeledEdges.isEmpty())) {
