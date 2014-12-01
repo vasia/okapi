@@ -50,4 +50,17 @@ public class UnlabeledEdge implements Writable {
 			this.trg = other.getTarget();
 			this.w = other.getWeight();
 		}
+		
+		@Override
+		public boolean equals(Object other) {
+			UnlabeledEdge otherEdge = (UnlabeledEdge)other;
+			if ((otherEdge.getSource() == this.getSource()) && (otherEdge.getTarget() == this.getTarget())
+					&& (otherEdge.getWeight() == this.getWeight())) {
+				return true;
+			}
+			else {
+				return false;
+			}
+			
+		}
 }
