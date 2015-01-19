@@ -15,6 +15,8 @@
  */
 package ml.grafos.okapi.semimetric;
 
+import ml.grafos.okapi.semimetric.ParallelMetricBFS.LongLongPair;
+
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Writable;
 
@@ -30,11 +32,12 @@ import org.apache.hadoop.io.Writable;
  * To avoid unexpected behavior, only the provided putLRU and removeLRUKey 
  * should be used and not the default put/remove methods.
  */
-public class LRUMapWritable<K extends Writable> extends org.apache.hadoop.io.MapWritable {
+public class LRUMapWritable extends org.apache.hadoop.io.MapWritable {
   
 	private int size;
 	private int currentSize;
 
+	public LRUMapWritable(){}
 	public LRUMapWritable(int s) {
 		super();
 		this.size = s;
@@ -46,12 +49,11 @@ public class LRUMapWritable<K extends Writable> extends org.apache.hadoop.io.Map
 	 * If the map is full, the least recently used element is replaced.
 	 * 
 	 */
-	public void putLRU(K key) {
+	public void putLRU(LongLongPair key) {
 		if (this.isFull()) {
 			if (this.containsKey(key)) {
-				// replace the element with an updated timestamp
+				// update the element's timestamp
 				this.put(key, new LongWritable(System.currentTimeMillis()));
-				currentSize++;
 			}
 			else {
 				// replace the least recently used element
@@ -61,22 +63,33 @@ public class LRUMapWritable<K extends Writable> extends org.apache.hadoop.io.Map
 			}
 		}
 		else {
-			this.put(key, new LongWritable(System.currentTimeMillis()));;
-			currentSize++;
+			if (!this.containsKey(key)) {
+				currentSize++;
+			}
+			this.put(key, new LongWritable(System.currentTimeMillis()));
 		}
 	}
+
+	@Override
+	public boolean containsKey(Object key) {
+		for (Entry<Writable, Writable> entry : this.entrySet()) {
+			if (((LongLongPair) entry.getKey()).equals((LongLongPair)key)) {
+				return true;
+			}
+		}
+		return false;
+	};
 	
 	/**
 	 * Removes the key with the oldest timestamp
 	 */
-	@SuppressWarnings("unchecked")
 	private void removeLRUKey() {
 		long oldestTimeStamp = System.currentTimeMillis();
-		K keyToReplace = null;
+		LongLongPair keyToReplace = null;
 		for (Entry<Writable, Writable> entry : this.entrySet()) {
 			if (((LongWritable)(entry.getValue())).get() < oldestTimeStamp) {
 				oldestTimeStamp = ((LongWritable)(entry.getValue())).get();
-				keyToReplace = (K) entry.getKey();
+				keyToReplace = (LongLongPair) entry.getKey();
 			}
 		}
 		if (keyToReplace != null) {
