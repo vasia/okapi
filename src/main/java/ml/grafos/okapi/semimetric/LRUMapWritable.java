@@ -15,7 +15,7 @@
  */
 package ml.grafos.okapi.semimetric;
 
-import ml.grafos.okapi.semimetric.ParallelMetricBFS.LongLongPair;
+import ml.grafos.okapi.semimetric.common.LongLongPair;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Writable;

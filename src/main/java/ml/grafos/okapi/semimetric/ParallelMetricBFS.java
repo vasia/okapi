@@ -15,19 +15,19 @@
  */
 package ml.grafos.okapi.semimetric;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import ml.grafos.okapi.semimetric.common.DoubleIntegerPair;
+import ml.grafos.okapi.semimetric.common.LongLongPair;
+import ml.grafos.okapi.semimetric.common.SimpleEdgeWithWeight;
 
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.master.DefaultMasterCompute;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 
 /**
  * Implementation of the last step of the backbone algorithm.
@@ -44,7 +44,7 @@ public class ParallelMetricBFS {
 	public static final String LRU_MAP_SIZE = "lru.map.size";
 	  
 	/** Default size of visited LRU map */
-	public static final int LRU_MAP_SIZE_DEFAULT = 2;
+	public static final int LRU_MAP_SIZE_DEFAULT = 100;
 
 	/**
 	 * During the first superstep, every vertex gathers its unlabeled edges.
@@ -65,7 +65,7 @@ public class ParallelMetricBFS {
 		@Override
 		public void compute(Vertex<LongWritable, LRUMapWritable, DoubleIntegerPair> vertex,
 				Iterable<SimpleEdgeWithWeight> messages) throws IOException {
-			
+
 			// retrieve list of unlabeled edges
 			List<Long> unlabeledEdgeTargets = new ArrayList<Long>();
 
@@ -112,7 +112,7 @@ public class ParallelMetricBFS {
 		public void compute(
 				Vertex<LongWritable, LRUMapWritable, DoubleIntegerPair> vertex,
 				Iterable<SimpleEdgeWithWeight> messages) throws IOException {
-
+			
 			LRUMapWritable visitedLRUMap = vertex.getValue();
 
 			for (SimpleEdgeWithWeight msg : messages) {
@@ -178,192 +178,4 @@ public class ParallelMetricBFS {
 		      }
 		  }
 	  }
-
-	  /**
-	   * Represents an undirected edge with a symmetric weight
-	   * and the discovered weight so far.
-	   *
-	   */
-	  public static class SimpleEdgeWithWeight implements Writable {
-
-			long msgSender;
-			long source;
-			long target;
-			double weight;
-			double sofar;
-
-	    public SimpleEdgeWithWeight() {}
-
-	    public SimpleEdgeWithWeight(long sender, long id1, long id2, double weight, double sofar) {
-	    	this.msgSender = sender;
-	    	this.source = id1;
-	    	this.target = id2;
-	    	this.weight = weight;
-	    	this.sofar = sofar;
-	    }
-
-	    public long getMsgSender() { return msgSender; }
-	    public long getSource() { return source; }
-	    public long getTarget() { return target; }
-	    public double getWeight() { return weight; }
-	    public double getSofar() { return sofar; }
-	    
-	    public void setMsgSender (long sender) {
-	    	this.msgSender = sender;
-	    }
-	    
-	    public void setSource (long src) {
-	    	this.source = src;
-	    }
-	    
-	    public void setTarget (long trg) {
-	    	this.target = trg;
-	    }
-	    
-	    public void setWeight (double w) {
-	    	this.weight = w;
-	    }
-	    
-	    public void setSofar (double sf) {
-	    	this.sofar = sf;
-	    }
-
-
-	    @Override
-	    public void readFields(DataInput input) throws IOException {
-	    	msgSender = input.readLong();
-	    	source = input.readLong();
-	    	target = input.readLong();
-	    	weight = input.readDouble();
-	    	sofar = input.readDouble();
-	    }
-
-	    @Override
-	    public void write(DataOutput output) throws IOException {
-	    	output.writeLong(msgSender);
-	    	output.writeLong(source);
-	    	output.writeLong(target);
-	    	output.writeDouble(weight);
-	    	output.writeDouble(sofar);
-	    }
-	    
-	    @Override
-	    public String toString() {
-	      return msgSender + " " +source+" "+target+" "+weight + " "+sofar;
-	    }
-	  }
-
-	  /**
-	   * 
-	   * A pair of two Long ids
-	   *
-	   */
-	public static class LongLongPair implements Writable {
-	    long source;
-	    long target;
-
-	    public LongLongPair() {}
-
-	    public LongLongPair(long id1, long id2) {
-	      this.source = id1;
-	      this.target = id2;
-	    }
-
-	    public long getSource() { return source; }
-	    public long getTarget() { return target; }
-	    
-	    public void setSource (long src) {
-	    	this.source = src;
-	    }
-	    
-	    public void setTarget (long trg) {
-	    	this.target = trg;
-	    }
-	    
-	    @Override
-	    public void readFields(DataInput input) throws IOException {
-	    	source = input.readLong();
-	    	target = input.readLong();
-	    }
-
-	    @Override
-	    public void write(DataOutput output) throws IOException {
-	      output.writeLong(source);
-	      output.writeLong(target);
-	    }
-	    
-	    @Override
-	    public String toString() {
-	      return source+" "+target;
-	    }
-
-	    @Override
-		public boolean equals(Object other) {
-	    	LongLongPair otherPair = (LongLongPair) other;
-	    	return ((this.getSource() == otherPair.getSource()) &&
-	    			(this.getTarget() == otherPair.getTarget()));
-		}
-	  }
-	  
-	  /**
-	   * Represents an edge weight together with an integer value
-	   * that denotes whether this edge is metric.
-	   *
-	   */
-	  @SuppressWarnings("rawtypes")
-		public static class DoubleIntegerPair implements WritableComparable {
-		  /**
-		   * 1: metric
-		   * 2: semi-metric
-		   * 3: unlabeled
-		   */
-		    double weight;
-		    int metric = 3;
-	
-		    public DoubleIntegerPair() {}
-	
-		    public DoubleIntegerPair(double weight, int metric) {
-		      this.weight = weight;
-		      this.metric = metric;
-		    }
-	
-		    public double getWeight() { return weight; }
-		    public boolean isMetric() { return metric == 1; }
-		    
-		    public DoubleIntegerPair setMetricLabel(int value) {
-		    	this.metric = value; 
-		    	return this;
-		    }
-	
-		    @Override
-		    public void readFields(DataInput input) throws IOException {
-		      weight = input.readDouble();
-		      metric = input.readInt();
-		    }
-	
-		    @Override
-		    public void write(DataOutput output) throws IOException {
-		      output.writeDouble(weight);
-		      output.writeInt(metric);
-		    }
-		    
-		    @Override
-		    public String toString() {
-		      return weight + "\t" + metric	;
-		    }
-	
-			@Override
-			public int compareTo(Object other) {
-				DoubleIntegerPair otherPair = (DoubleIntegerPair) other;
-				if (this.getWeight() < otherPair.getWeight()) {
-					return -1;
-				}
-				else if (this.getWeight() > otherPair.getWeight()) {
-					return 1;
-				}
-				else {
-					return 0;
-				}
-			}
-		  }
 }
