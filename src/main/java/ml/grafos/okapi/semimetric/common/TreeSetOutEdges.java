@@ -139,8 +139,8 @@ public class TreeSetOutEdges<I extends WritableComparable, E extends WritableCom
 	    }
 	  }
 	  
-	  static <K extends Comparable,V extends Comparable<? super V>>
-	  SortedSet<Entry<K,V>> entriesSortedByValues(Map<K,V> map) {
+	  static <K extends Comparable,V extends Comparable<? super V>> SortedSet<Entry<K,V>> 
+	  	entriesSortedByValues(Map<K,V> map) {
 	      SortedSet<Entry<K,V>> sortedEntries = Sets.newTreeSet(new EdgeValueComparator<K, V>());
 	      sortedEntries.addAll(map.entrySet());
 	      return sortedEntries;
