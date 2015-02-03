@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ml.grafos.okapi.semimetric;
-
-import ml.grafos.okapi.semimetric.common.LongLongPair;
+package ml.grafos.okapi.semimetric.common;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Writable;
