@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ml.grafos.okapi.semimetric.common.DoubleIntegerPair;
+import ml.grafos.okapi.semimetric.common.LRUMapWritable;
 import ml.grafos.okapi.semimetric.common.LongLongPair;
 import ml.grafos.okapi.semimetric.common.SimpleEdgeWithWeight;
 
