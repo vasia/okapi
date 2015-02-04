@@ -1,0 +1,11 @@
+#!/bin/bash
+
+###
+## Find and remove all remaining semi-metric edges
+###
+
+if test "$#" -ne 5; then
+	echo "Usage: run_optParallelBFS <input_edges> <output_edges> <LRUMap_size> <#megasteps> <#threads>"
+	exit
+fi
+/home/b.vka/workspace/hadoop-1.2.1/hadoop-1.2.1/bin/hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.semimetric.OptimizedParallelMetricBFS\$Initialize -mc  ml.grafos.okapi.semimetric.OptimizedParallelMetricBFS\$MasterCompute -eif ml.grafos.okapi.semimetric.io.LongDoubleIntEdgeValueInputFormat -eip $1 -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $2 -w 1 -ca giraph.outEdgesClass=org.apache.giraph.edge.HashMapEdges -ca giraph.SplitMasterWorker=false -ca giraph.numComputeThreads=$5 -ca giraph.numInputThreads=$5 -ca giraph.numOutputThreads=$5 -ca giraph.useSuperstepCounters=false -ca mapred.child.java.opts=-Xmx14g -ca giraph.nettyCompressionAlgorithm=SNAPPY -ca lru.map.size=$3 -ca number.of.megasteps=$4

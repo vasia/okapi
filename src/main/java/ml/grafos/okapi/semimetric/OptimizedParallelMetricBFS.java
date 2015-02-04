@@ -150,6 +150,7 @@ public class OptimizedParallelMetricBFS {
 						}
 					}
 				}
+				unlabeledEdgeTargets.clear();
 			}
 			
 			/**every vertex processes received messages **/

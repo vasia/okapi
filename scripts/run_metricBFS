@@ -1,0 +1,11 @@
+#!/bin/bash
+
+###
+## Find and remove all remaining semi-metric edges
+###
+
+if test "$#" -ne 3; then
+	echo "Usage: run_metricBFS <input_edges> <output_edges> <#threads>"
+	exit
+fi
+/home/b.vka/workspace/hadoop-1.2.1/hadoop-1.2.1/bin/hadoop jar /home/b.vka/workspace/okapi/target/okapi-0.3.5-SNAPSHOT-jar-with-dependencies.jar org.apache.giraph.GiraphRunner ml.grafos.okapi.semimetric.MetricBFS\$PutUnlabeledEdgesInAggregator -mc  ml.grafos.okapi.semimetric.MetricBFS\$MasterCompute -eif ml.grafos.okapi.semimetric.io.LongDoubleBooleanEdgeValueInputFormat -eip $1 -eof org.apache.giraph.io.formats.SrcIdDstIdEdgeValueTextOutputFormat -op $2 -w 1 -ca giraph.outEdgesClass=ml.grafos.okapi.semimetric.common.TreeSetOutEdges -ca giraph.SplitMasterWorker=false -ca giraph.numComputeThreads=$3 -ca giraph.numInputThreads=$3 -ca giraph.numOutputThreads=$3 -ca giraph.useSuperstepCounters=false
