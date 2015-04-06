@@ -32,7 +32,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
  * weighted graphs with long IDs edges with double-boolean pair values.
  * The boolean value of each edge is false by default.
  *
- * Each line consists of: <source id> <target id> <edge weight> 
+ * Each line consists of: <source id> <target id> <edge weight> <semi-metric label>
  */
 public class LongDoubleBooleanEdgeInputFormat extends
     TextEdgeInputFormat<LongWritable, DoubleBooleanPair> {
@@ -71,7 +71,8 @@ public class LongDoubleBooleanEdgeInputFormat extends
     @Override
     protected DoubleBooleanPair getValue(String[] tokens)
       throws IOException {
-      return new DoubleBooleanPair(Double.parseDouble(tokens[2]), false);
+      return new DoubleBooleanPair(Double.parseDouble(tokens[2]), 
+    		  Boolean.parseBoolean(tokens[3]));
     }
   }
 }
