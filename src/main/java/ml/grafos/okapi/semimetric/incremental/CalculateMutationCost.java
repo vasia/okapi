@@ -3,13 +3,14 @@ package ml.grafos.okapi.semimetric.incremental;
 import java.io.IOException;
 
 import org.apache.giraph.aggregators.IntSumAggregator;
+import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.master.DefaultMasterCompute;
 import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
 
 /**
  * 
@@ -55,13 +56,13 @@ public class CalculateMutationCost {
 	 private static final int EDGE_REMOVAL = 2;
 	 
 	 /** The BFSs aggregator*/
-	public static final String BFS_AGGREGATOR = "bfs.aggregator";
+	 public static final String BFS_AGGREGATOR = "bfs.aggregator";
 
 	 /**
 	  * Checks whether the edge to remove is semi-metric.
 	  */
-	 public static class CheckSemiMetric extends BasicComputation<LongWritable, NullWritable, 
-	 	BooleanWritable, BooleanWritable> {
+	 public static class CheckSemiMetric extends BasicComputation<LongWritable, BooleanWritable, 
+	 	BooleanWritable, Text> {
 
 		private long edgeSrc;
 		private long edgeTrg;
@@ -74,48 +75,106 @@ public class CalculateMutationCost {
 		
 		@Override
 		public void compute(
-				Vertex<LongWritable, NullWritable, BooleanWritable> vertex, 
-				Iterable<BooleanWritable> messages) throws IOException {
+				Vertex<LongWritable, BooleanWritable, BooleanWritable> vertex, 
+				Iterable<Text> messages) throws IOException {
+
 			LongWritable trgVertexId = new LongWritable(edgeTrg);
 			
 			if (vertex.getId().get() == edgeSrc) {
 				// the edge is semi-metric if it has a "true" label
 				if (vertex.getEdgeValue(trgVertexId).get()) {
-					// computation is required => set the aggregator to 0
+					// no computation is required => set the aggregator to 0
 					aggregate(BFS_AGGREGATOR, new IntWritable(0));
 				}
 				else {
-					// the edge is metric
+					// the edge is metric -> remove it
+					vertex.removeEdges(trgVertexId);
 					// we need to find all semi-metric edges in alternative paths
 					// => set the aggregator to 1
 					aggregate(BFS_AGGREGATOR, new IntWritable(1));
 				}
 			}
+			// set all vertices to "not visited"
+			vertex.setValue(new BooleanWritable(false));
 		}
 	 }
 
 	 /**
 	  * 
 	  * Executes a BFS step from the src of the edge to be removed to the target
-	  * and accumulates semi-metric edges found.
-	  * The vertex value keeps a "visited" flag. If the vertex has already been visited, 
-	  * then it will not propagate the message (to avoid cycles). 
+	  * and accumulates the paths found on the way.
+	  * 
+	  * If a vertex receives a path sequence containing its own ID, 
+	  * then it stops the propagation (cycle).
+	  * 
+	  * At the end of the BFS, 
+	  * either the target of the edge will have received all the alternative paths
+	  * or none, in which case no such paths exist.
 	  * 
 	  */
-	 public static class CountSemiMetricEdges extends BasicComputation<LongWritable, BooleanWritable, 
-	 	BooleanWritable, LongWritable> {
+	 public static class FindAlternativePaths extends BasicComputation<LongWritable, BooleanWritable, 
+	 	BooleanWritable, Text> {
 
+		private long edgeSrc;
+		private long edgeTrg;
+		 
+		@Override
+		public void preSuperstep() {
+			edgeSrc = getContext().getConfiguration().getLong(EVENT_EDGE_SRC, -1L);
+			edgeTrg = getContext().getConfiguration().getLong(EVENT_EDGE_TRG, -1L);
+		};
+			
 		@Override
 		public void compute(Vertex<LongWritable, BooleanWritable, BooleanWritable> vertex,
-				Iterable<LongWritable> messages) throws IOException {
+				Iterable<Text> messages) throws IOException {
 			
+			if (getSuperstep() == 1) {
+				// only the source vertex propagates a message
+				if (vertex.getId().get() == edgeSrc) {
+					Text msg = new Text(vertex.getId().toString());
+					for (Edge<LongWritable, BooleanWritable> e : vertex.getEdges()) {
+						sendMessage(e.getTargetVertexId(), msg);
+					}
+				}
+				vertex.voteToHalt();
+			}
+			else {
+				// if the receiving vertex is the target => print the message
+				if (vertex.getId().get() == edgeTrg) {
+					for (Text path : messages) {
+						System.out.println("Path " + path.toString());
+					}
+					vertex.voteToHalt();
+				}
+				else {
+					// check if the received message contains own ID
+					// if yes, don't propagate
+					// otherwise, add own ID and send to all neighbors
+					for (Text msg : messages) {
+						String msgString = msg.toString();
+						String vertexId = vertex.getId().toString();
+						if (msgString.contains(vertexId)) {
+							// cycle detected
+						}
+						else {
+							msgString.concat("\t" + vertexId);
+							Text pathToSend = new Text(msgString); 
+							// propagate to all neighbors
+							for (Edge<LongWritable, BooleanWritable> e : vertex.getEdges()) {
+								sendMessage(e.getTargetVertexId(), pathToSend);
+							}
+						}
+					}
+					vertex.voteToHalt();
+				}
+			}
 		} 
 	 }
 	 
 	 /**
 	   * Coordinates the execution of the algorithm.
 	   */
-	  public static class MasterCompute extends DefaultMasterCompute {
+	 public static class MasterCompute extends DefaultMasterCompute {
 		  
 		  private int eventType;
 		  
@@ -146,7 +205,7 @@ public class CalculateMutationCost {
 						haltComputation();
 					}
 					else if (aggrValue == 1) {
-						setComputation(CountSemiMetricEdges.class);
+						setComputation(FindAlternativePaths.class);
 					}
 					else {
 				    	System.err.print("Invalid Aggregator value");
@@ -154,6 +213,7 @@ public class CalculateMutationCost {
 					}
 				} else {
 					// superstep > 1
+					setComputation(FindAlternativePaths.class);
 				}
 		    } else if (eventType == EDGE_ADDITION) {
 		    	
