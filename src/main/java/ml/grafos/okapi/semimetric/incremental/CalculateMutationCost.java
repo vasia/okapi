@@ -140,6 +140,7 @@ public class CalculateMutationCost {
 			}
 			else {
 				// if the receiving vertex is the target => print the message
+				// TODO: instead of printing, put in a HashSet aggregator
 				if (vertex.getId().get() == edgeTrg) {
 					for (Text path : messages) {
 						System.out.println("Path " + path.toString());
@@ -157,8 +158,7 @@ public class CalculateMutationCost {
 							// cycle detected
 						}
 						else {
-							msgString.concat("\t" + vertexId);
-							Text pathToSend = new Text(msgString); 
+							Text pathToSend = new Text(msgString.concat("\t" + vertexId)); 
 							// propagate to all neighbors
 							for (Edge<LongWritable, BooleanWritable> e : vertex.getEdges()) {
 								sendMessage(e.getTargetVertexId(), pathToSend);
@@ -223,5 +223,4 @@ public class CalculateMutationCost {
 		    }
 		  }
 	  }
-
 }
