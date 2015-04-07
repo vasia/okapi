@@ -58,6 +58,9 @@ public class CalculateMutationCost {
 	 /** The BFSs aggregator*/
 	 public static final String BFS_AGGREGATOR = "bfs.aggregator";
 
+	 /** The edges-to-be-examines aggregator **/
+	 public static final String EDGES_AGGREGATOR = "edges.aggregator";
+
 	 /**
 	  * Checks whether the edge to remove is semi-metric.
 	  */
@@ -140,10 +143,23 @@ public class CalculateMutationCost {
 			}
 			else {
 				// if the receiving vertex is the target => print the message
-				// TODO: instead of printing, put in a HashSet aggregator
 				if (vertex.getId().get() == edgeTrg) {
 					for (Text path : messages) {
 						System.out.println("Path " + path.toString());
+						
+						// add the edges of the path in the edges aggregator
+						String [] tokens = path.toString().split("\t");
+						
+						EdgeHashSetWritable edgeSet = new EdgeHashSetWritable();
+						EdgeIdsPair pair = new EdgeIdsPair();
+						
+						for (int i=0; i < tokens.length-1; i++) {
+							// set the edge pair values
+							pair.setSource(Long.parseLong(tokens[i]));
+							pair.setTarget(Long.parseLong(tokens[i+1]));
+							edgeSet.add(pair);
+							aggregate(EDGES_AGGREGATOR, edgeSet);
+						}
 					}
 					vertex.voteToHalt();
 				}
@@ -185,6 +201,10 @@ public class CalculateMutationCost {
 			  
 			  // register the BFS aggregator
 			  registerPersistentAggregator(BFS_AGGREGATOR, IntSumAggregator.class);
+			  
+			  // register the edges aggregator
+			  registerPersistentAggregator(EDGES_AGGREGATOR, EdgeHashSetAggregator.class);
+
 		  }
 		  
 		  @Override
@@ -213,6 +233,7 @@ public class CalculateMutationCost {
 					}
 				} else {
 					// superstep > 1
+					EdgeHashSetWritable edgeSet = (EdgeHashSetWritable)getAggregatedValue(EDGES_AGGREGATOR);
 					setComputation(FindAlternativePaths.class);
 				}
 		    } else if (eventType == EDGE_ADDITION) {
