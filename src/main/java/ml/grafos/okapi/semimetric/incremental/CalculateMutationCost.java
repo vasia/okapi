@@ -2,6 +2,7 @@ package ml.grafos.okapi.semimetric.incremental;
 
 import java.io.IOException;
 
+import org.apache.giraph.aggregators.BooleanAndAggregator;
 import org.apache.giraph.aggregators.IntSumAggregator;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
@@ -58,8 +59,13 @@ public class CalculateMutationCost {
 	 /** The BFSs aggregator*/
 	 public static final String BFS_AGGREGATOR = "bfs.aggregator";
 
-	 /** The edges-to-be-examines aggregator **/
+	 /** The edges-to-be-examined aggregator **/
 	 public static final String EDGES_AGGREGATOR = "edges.aggregator";
+
+	 /** The helper aggrgeator that is used to check whether the alternative paths 
+	  * calculation step has converged.
+	  */
+	 public static final String PATHS_FOUND_AGGREGATOR = "paths.found.aggregator";
 
 	 /**
 	  * Checks whether the edge to remove is semi-metric.
@@ -138,8 +144,9 @@ public class CalculateMutationCost {
 					for (Edge<LongWritable, BooleanWritable> e : vertex.getEdges()) {
 						sendMessage(e.getTargetVertexId(), msg);
 					}
+					aggregate(PATHS_FOUND_AGGREGATOR, new BooleanWritable(false));
 				}
-				vertex.voteToHalt();
+//				vertex.voteToHalt();
 			}
 			else {
 				// if the receiving vertex is the target => print the message
@@ -161,7 +168,7 @@ public class CalculateMutationCost {
 						edgeSet.add(new EdgeIdsPair(Long.parseLong(tokens[tokens.length -1]), edgeTrg));
 						aggregate(EDGES_AGGREGATOR, edgeSet);
 					}
-					vertex.voteToHalt();
+					//vertex.voteToHalt();
 				}
 				else {
 					// check if the received message contains own ID
@@ -179,14 +186,50 @@ public class CalculateMutationCost {
 							for (Edge<LongWritable, BooleanWritable> e : vertex.getEdges()) {
 								sendMessage(e.getTargetVertexId(), pathToSend);
 							}
+							aggregate(PATHS_FOUND_AGGREGATOR, new BooleanWritable(false));
 						}
 					}
-					vertex.voteToHalt();
+					//vertex.voteToHalt();
 				}
 			}
 		} 
 	 }
-	 
+
+	 /**
+	  * The last step of the algorithm for Edge Deletion:
+	  * read the discovered paths from the aggregator and count 
+	  * how many edges among them are semi-metric.
+	  */
+	 public static class CountSemiMetricEdges extends BasicComputation<LongWritable, BooleanWritable, 
+	 	BooleanWritable, Text> {
+
+		private ArrayListOfEdgeIdsPairWritable edgeSet;
+		 
+		@Override
+		public void preSuperstep() {
+			edgeSet = (ArrayListOfEdgeIdsPairWritable)getAggregatedValue(EDGES_AGGREGATOR);
+		};
+			
+		@Override
+		public void compute(Vertex<LongWritable, BooleanWritable, BooleanWritable> vertex,
+				Iterable<Text> messages) throws IOException {
+
+			for (EdgeIdsPair pair : edgeSet) {
+				// only the source vertex chechs the edge
+				if (pair.getSource() == vertex.getId().get()) {
+					if (vertex.getEdgeValue(new LongWritable(pair.getTarget())).get()) {
+						// the edge is semi-metric
+						System.out.println("semi-metric edge found: " + pair.getSource() + ", " + pair.getTarget());
+
+						// increase the BFS aggregator
+						aggregate(BFS_AGGREGATOR, new IntWritable(1));
+					}
+				}
+			}
+			vertex.voteToHalt();
+		}
+	 }
+
 	 /**
 	   * Coordinates the execution of the algorithm.
 	   */
@@ -205,6 +248,8 @@ public class CalculateMutationCost {
 			  // register the edges aggregator
 			  registerPersistentAggregator(EDGES_AGGREGATOR, ArrayListOfEdgeIdsPairWritableAggregator.class);
 
+			  // register the convergence aggregator
+			  registerAggregator(PATHS_FOUND_AGGREGATOR, BooleanAndAggregator.class);
 		  }
 		  
 		  @Override
@@ -233,12 +278,22 @@ public class CalculateMutationCost {
 					}
 				} else {
 					// superstep > 1
-					ArrayListOfEdgeIdsPairWritable edgeSet = (ArrayListOfEdgeIdsPairWritable)getAggregatedValue(
-							EDGES_AGGREGATOR);
-					for (EdgeIdsPair thePair : edgeSet) {
-						System.out.println("Superstep : " + superstep + " aggregator value: " + thePair.getSource() + ", " + thePair.getTarget());
+					
+					// check if all paths were discovered
+					boolean pathsFound = ((BooleanWritable)getAggregatedValue(PATHS_FOUND_AGGREGATOR)).get();
+					if (pathsFound) {
+						ArrayListOfEdgeIdsPairWritable edgeSet = (ArrayListOfEdgeIdsPairWritable)getAggregatedValue(
+								EDGES_AGGREGATOR);
+						
+						int aggrValue = ((IntWritable)getAggregatedValue(BFS_AGGREGATOR)).get();
+						System.out.println("*** BFSs to run: " + aggrValue);
+						
+						// execute the final step: count the semi-metric edges
+						setComputation(CountSemiMetricEdges.class);
 					}
-					setComputation(FindAlternativePaths.class);
+					else {
+						setComputation(FindAlternativePaths.class);
+					}
 				}
 		    } else if (eventType == EDGE_ADDITION) {
 		    	

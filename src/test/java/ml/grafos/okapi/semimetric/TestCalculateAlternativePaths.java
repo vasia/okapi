@@ -55,7 +55,8 @@ public class TestCalculateAlternativePaths {
     }
 
 	/**
-	 * Test removing a metric edge and having 2 alternative paths.
+	 * Test removing a metric edge and having 2 alternative paths
+	 * with one semi-metric edge (BFSs to run: 2).
 	 */
 	@Test
 	public void testMetricRemoval() throws Exception {
@@ -69,6 +70,50 @@ public class TestCalculateAlternativePaths {
         		"4	5	false",  "5	4	false",
         		"4	7	false",  "7	4	false",
         		"6	7	false",  "7	6	false",
+        		"8	9	false",  "9	8	false",
+        		"9	10	false",  "10	9	false",
+        		"9	11	false",  "11	9	false"
+                 };
+	      	
+        // run to check results correctness
+        GiraphConfiguration conf = new GiraphConfiguration();
+        conf.setMasterComputeClass(CalculateMutationCost.MasterCompute.class);
+        conf.setComputationClass(CalculateMutationCost.CheckSemiMetric.class);
+        conf.setEdgeInputFormatClass(LongBooleanEdgeValueInputFormat.class);
+        conf.setVertexOutputFormatClass(AdjacencyListTextVertexOutputFormat.class);
+        conf.setOutEdgesClass(HashMapEdges.class);
+        
+        // set configuration input parameters
+       	conf.set("event.type", "2");
+       	conf.set("event.edge.src", "1");
+       	conf.set("event.edge.trg", "6");
+
+        // run internally
+        Iterable<String> results = InternalVertexRunner.run(conf, null, graph);
+        System.out.println("Testing removal of a metric edge");
+        for (String s: results) {
+        	// print results
+        	System.out.println(s);
+        }
+        System.out.println();
+    }
+
+	/**
+	 * Test removing a metric edge and having 2 alternative paths
+	 * with three semi-metric edges (BFSs to run: 4).
+	 */
+	@Test
+	public void testMetricRemovalWithThreeSemimetricEdges() throws Exception {
+        String[] graph = new String[] {
+        		"1	2	false", "2	1	false",
+        		"1	3	true",  "3	1	true",
+        		"1	6	false",  "6	1	false",
+        		"1	8	false",  "8	1	false",
+        		"2	5	false",  "5	2	false",
+        		"3	4	false",  "4	3	false",
+        		"4	5	false",  "5	4	false",
+        		"4	7	true",  "7	4	true",
+        		"6	7	true",  "7	6	true",
         		"8	9	false",  "9	8	false",
         		"9	10	false",  "10	9	false",
         		"9	11	false",  "11	9	false"
