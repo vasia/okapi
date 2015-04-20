@@ -150,16 +150,16 @@ public class CalculateMutationCost {
 						// add the edges of the path in the edges aggregator
 						String [] tokens = path.toString().split("\t");
 						
-						EdgeHashSetWritable edgeSet = new EdgeHashSetWritable();
-						EdgeIdsPair pair = new EdgeIdsPair();
+						ArrayListOfEdgeIdsPairWritable edgeSet = new ArrayListOfEdgeIdsPairWritable();
 						
 						for (int i=0; i < tokens.length-1; i++) {
-							// set the edge pair values
-							pair.setSource(Long.parseLong(tokens[i]));
-							pair.setTarget(Long.parseLong(tokens[i+1]));
+							// create the edge pair
+							EdgeIdsPair pair = new EdgeIdsPair(Long.parseLong(tokens[i]), Long.parseLong(tokens[i+1]));
 							edgeSet.add(pair);
-							aggregate(EDGES_AGGREGATOR, edgeSet);
 						}
+						// add the last edge
+						edgeSet.add(new EdgeIdsPair(Long.parseLong(tokens[tokens.length -1]), edgeTrg));
+						aggregate(EDGES_AGGREGATOR, edgeSet);
 					}
 					vertex.voteToHalt();
 				}
@@ -203,7 +203,7 @@ public class CalculateMutationCost {
 			  registerPersistentAggregator(BFS_AGGREGATOR, IntSumAggregator.class);
 			  
 			  // register the edges aggregator
-			  registerPersistentAggregator(EDGES_AGGREGATOR, EdgeHashSetAggregator.class);
+			  registerPersistentAggregator(EDGES_AGGREGATOR, ArrayListOfEdgeIdsPairWritableAggregator.class);
 
 		  }
 		  
@@ -233,7 +233,11 @@ public class CalculateMutationCost {
 					}
 				} else {
 					// superstep > 1
-					EdgeHashSetWritable edgeSet = (EdgeHashSetWritable)getAggregatedValue(EDGES_AGGREGATOR);
+					ArrayListOfEdgeIdsPairWritable edgeSet = (ArrayListOfEdgeIdsPairWritable)getAggregatedValue(
+							EDGES_AGGREGATOR);
+					for (EdgeIdsPair thePair : edgeSet) {
+						System.out.println("Superstep : " + superstep + " aggregator value: " + thePair.getSource() + ", " + thePair.getTarget());
+					}
 					setComputation(FindAlternativePaths.class);
 				}
 		    } else if (eventType == EDGE_ADDITION) {
